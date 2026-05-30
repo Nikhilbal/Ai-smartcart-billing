@@ -46,6 +46,23 @@ def health() -> dict[str, str]:
     return {"ok": "true", "service": "smart-cart-ai", "time": datetime.utcnow().isoformat()}
 
 
+@app.get("/")
+def root() -> dict[str, Any]:
+    return {
+        "ok": True,
+        "service": "Smart Cart AI Service",
+        "message": "AI recommendations and fraud scoring API is running",
+        "endpoints": {
+            "health": "/health",
+            "docs": "/docs",
+            "recommendations": "/recommendations/demo-user",
+            "bestProductWeek": "/best-product-week",
+            "categorySuggestions": "/category-suggestions/dairy",
+            "fraudScore": "/fraud/score"
+        }
+    }
+
+
 @app.get("/recommendations/{user_id}")
 def recommendations(user_id: str) -> list[dict[str, Any]]:
     ranked = sorted(PRODUCTS, key=lambda product: product["score"], reverse=True)
