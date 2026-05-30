@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="900" viewBox="0 0 1400 900">
+  <defs>
+    <style>
+      .bg { fill: #F8FAFC; }
+      .card { fill: #FFFFFF; stroke: #E5E7EB; stroke-width: 2; }
+      .title { fill: #111827; font: 800 42px Arial, sans-serif; }
+      .h { fill: #111827; font: 800 28px Arial, sans-serif; }
+      .text { fill: #6B7280; font: 700 20px Arial, sans-serif; }
+      .small { fill: #6B7280; font: 700 16px Arial, sans-serif; }
+      .mono { fill: #111827; font: 800 22px "Courier New", monospace; }
+      .blue { fill: #2563EB; }
+      .green { fill: #10B981; }
+      .purple { fill: #8B5CF6; }
+      .orange { fill: #F59E0B; }
+      .pale-blue { fill: #EFF6FF; }
+      .pale-green { fill: #ECFDF5; }
+      .pale-purple { fill: #F5F3FF; }
+      .pale-orange { fill: #FFFBEB; }
+      .line { stroke: #2563EB; stroke-width: 5; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+      .line-green { stroke: #10B981; stroke-width: 5; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+      .pill { rx: 26; ry: 26; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="1400" height="900"/>
+  <text x="70" y="85" class="title">Smart Cart Weight Verification Demo</text>
+  <text x="70" y="122" class="text">Scenario: customer scanned all items correctly, sensor weight matches expected weight within 2% tolerance.</text>
+
+  <rect x="70" y="170" width="360" height="560" rx="34" class="card"/>
+  <circle cx="145" cy="245" r="42" class="pale-blue"/>
+  <path d="M124 244h46l-8 48h-30l-8-48zM132 244l9-26M164 244l-12-26M133 304h1M162 304h1" class="line"/>
+  <text x="105" y="340" class="h">1. Scan Items</text>
+  <text x="105" y="378" class="text">Each scan adds product</text>
+  <text x="105" y="405" class="text">weight from database.</text>
+  <rect x="105" y="450" width="290" height="64" rx="18" class="pale-blue"/>
+  <text x="128" y="490" class="mono">Milk 0.53kg x 2</text>
+  <rect x="105" y="532" width="290" height="64" rx="18" class="pale-blue"/>
+  <text x="128" y="572" class="mono">Bread 0.40kg x 1</text>
+  <rect x="105" y="615" width="290" height="64" rx="18" class="pale-green"/>
+  <text x="128" y="655" class="mono">Expected: 1.46kg</text>
+
+  <path d="M455 445h120" class="line"/>
+  <path d="M555 425l32 20-32 20" class="line"/>
+
+  <rect x="600" y="170" width="360" height="560" rx="34" class="card"/>
+  <circle cx="675" cy="245" r="42" class="pale-orange"/>
+  <path d="M650 286h50M675 224v62M642 254h66M642 254l-18 42h36l-18-42zM708 254l-18 42h36l-18-42z" class="line"/>
+  <text x="635" y="340" class="h">2. Sensor Reads Cart</text>
+  <text x="635" y="378" class="text">Load cell + HX711</text>
+  <text x="635" y="405" class="text">sends real basket weight.</text>
+  <rect x="635" y="462" width="290" height="76" rx="20" class="pale-orange"/>
+  <text x="660" y="507" class="mono">Actual: 1.48kg</text>
+  <rect x="635" y="570" width="290" height="96" rx="20" class="pale-purple"/>
+  <text x="660" y="610" class="small">Variance formula</text>
+  <text x="660" y="645" class="mono">|1.48 - 1.46| / 1.46</text>
+
+  <path d="M985 445h120" class="line-green"/>
+  <path d="M1085 425l32 20-32 20" class="line-green"/>
+
+  <rect x="1130" y="170" width="220" height="560" rx="34" class="card"/>
+  <circle cx="1240" cy="245" r="46" class="pale-green"/>
+  <path d="M1214 244l18 18 38-44" class="line-green"/>
+  <text x="1170" y="340" class="h">3. Result</text>
+  <rect x="1160" y="390" width="160" height="58" rx="29" class="pale-green"/>
+  <text x="1185" y="428" fill="#047857" font-family="Arial, sans-serif" font-size="22" font-weight="800">VERIFIED</text>
+  <text x="1160" y="500" class="text">Variance: 1.36%</text>
+  <text x="1160" y="535" class="text">Tolerance: 2%</text>
+  <text x="1160" y="590" class="text">Payment enabled</text>
+  <text x="1160" y="625" class="text">Exit QR allowed</text>
+
+  <rect x="70" y="775" width="1280" height="70" rx="24" class="pale-green"/>
+  <text x="105" y="820" fill="#047857" font-family="Arial, sans-serif" font-size="24" font-weight="800">Final decision: scanned products and physical weight match, so the cart is safe to bill.</text>
+</svg>

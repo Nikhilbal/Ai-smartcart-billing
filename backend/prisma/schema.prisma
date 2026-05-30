@@ -1,0 +1,282 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ProductStatus {
+  ACTIVE
+  LOW_STOCK
+  OUT_OF_STOCK
+  INACTIVE
+}
+
+enum CartStatus {
+  OPEN
+  CHECKOUT
+  COMPLETED
+  ABANDONED
+}
+
+enum CartItemStatus {
+  SCANNED
+  VERIFIED
+  BILLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  CASH_PENDING
+}
+
+enum WeightStatus {
+  PENDING
+  VERIFIED
+  FAILED
+}
+
+enum PaymentMethod {
+  UPI
+  CARD
+  CASH
+}
+
+enum FraudType {
+  WEIGHT_MISMATCH
+  BARCODE_SWAP
+  SCAN_REMOVE_ABUSE
+  PAYMENT_EXIT_ATTEMPT
+  UNSCANNED_ITEM
+  DUPLICATE_BARCODE
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum FraudStatus {
+  ACTIVE
+  RESOLVED
+  BLOCKED
+  DECLINED
+}
+
+enum ExitStatus {
+  CREATED
+  USED
+  BLOCKED
+}
+
+model Store {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  city      String
+  area      String
+  address   String
+  createdAt DateTime @default(now())
+  admins    Admin[]
+  carts     Cart[]
+  bills     Bill[]
+}
+
+model User {
+  id            String           @id @default(cuid())
+  name          String
+  mobile        String           @unique
+  email         String?
+  loyaltyPoints Int              @default(240)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  carts         Cart[]
+  payments      Payment[]
+  bills         Bill[]
+  fraudEvents   FraudEvent[]
+  recommendations Recommendation[]
+}
+
+model Admin {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         String   @default("STORE_MANAGER")
+  storeId      String
+  store        Store    @relation(fields: [storeId], references: [id])
+  createdAt    DateTime @default(now())
+}
+
+model Category {
+  id       String    @id @default(cuid())
+  name     String    @unique
+  emoji    String
+  products Product[]
+}
+
+model Product {
+  id          String           @id @default(cuid())
+  name        String
+  barcode     String           @unique
+  description String
+  categoryId  String
+  category    Category         @relation(fields: [categoryId], references: [id])
+  price       Float
+  mrp         Float
+  weightKg    Float
+  imageUrl    String
+  supplier    String
+  status      ProductStatus    @default(ACTIVE)
+  isActive    Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  inventory   Inventory?
+  cartItems   CartItem[]
+  recommendations Recommendation[]
+}
+
+model Inventory {
+  id              String        @id @default(cuid())
+  productId       String        @unique
+  product         Product       @relation(fields: [productId], references: [id])
+  stock           Int
+  minStock        Int           @default(50)
+  status          ProductStatus @default(ACTIVE)
+  lastRestockedAt DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+model Cart {
+  id             String        @id @default(cuid())
+  userId         String
+  user           User          @relation(fields: [userId], references: [id])
+  storeId        String
+  store          Store         @relation(fields: [storeId], references: [id])
+  status         CartStatus    @default(OPEN)
+  paymentStatus  PaymentStatus @default(PENDING)
+  weightStatus   WeightStatus  @default(PENDING)
+  subtotal       Float         @default(0)
+  tax            Float         @default(0)
+  discount       Float         @default(0)
+  total          Float         @default(0)
+  expectedWeightKg Float       @default(0)
+  actualWeightKg   Float?
+  startedAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  items          CartItem[]
+  payments       Payment[]
+  bill           Bill?
+  fraudEvents    FraudEvent[]
+  weightVerifications WeightVerification[]
+}
+
+model CartItem {
+  id        String         @id @default(cuid())
+  cartId    String
+  cart      Cart           @relation(fields: [cartId], references: [id])
+  productId String
+  product   Product        @relation(fields: [productId], references: [id])
+  quantity  Int
+  unitPrice Float
+  weightKg  Float
+  status    CartItemStatus @default(SCANNED)
+  scans     Int            @default(1)
+  removeCount Int          @default(0)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@unique([cartId, productId])
+}
+
+model Payment {
+  id              String        @id @default(cuid())
+  cartId          String
+  cart            Cart          @relation(fields: [cartId], references: [id])
+  userId          String
+  user            User          @relation(fields: [userId], references: [id])
+  method          PaymentMethod
+  amount          Float
+  status          PaymentStatus
+  reference       String        @unique
+  gatewayResponse Json?
+  createdAt       DateTime      @default(now())
+  bill            Bill?
+}
+
+model Bill {
+  id                   String              @id @default(cuid())
+  cartId               String              @unique
+  cart                 Cart                @relation(fields: [cartId], references: [id])
+  userId               String
+  user                 User                @relation(fields: [userId], references: [id])
+  storeId              String
+  store                Store               @relation(fields: [storeId], references: [id])
+  paymentId            String              @unique
+  payment              Payment             @relation(fields: [paymentId], references: [id])
+  weightVerificationId String?
+  billNo               String              @unique
+  subtotal             Float
+  tax                  Float
+  discount             Float
+  total                Float
+  qrPayload            String
+  createdAt            DateTime            @default(now())
+  exitVerification     ExitVerification?
+}
+
+model FraudEvent {
+  id              String      @id @default(cuid())
+  cartId          String?
+  cart            Cart?       @relation(fields: [cartId], references: [id])
+  userId          String?
+  user            User?       @relation(fields: [userId], references: [id])
+  type            FraudType
+  risk            RiskLevel
+  status          FraudStatus @default(ACTIVE)
+  title           String
+  description     String
+  expectedWeightKg Float?
+  actualWeightKg   Float?
+  variancePercent Float?
+  metadata        Json?
+  createdAt       DateTime    @default(now())
+  resolvedAt      DateTime?
+}
+
+model WeightVerification {
+  id              String       @id @default(cuid())
+  cartId          String
+  cart            Cart         @relation(fields: [cartId], references: [id])
+  expectedWeightKg Float
+  actualWeightKg   Float
+  variancePercent Float
+  status          WeightStatus
+  createdAt       DateTime     @default(now())
+}
+
+model Recommendation {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  reason    String
+  score     Float
+  createdAt DateTime @default(now())
+}
+
+model ExitVerification {
+  id         String     @id @default(cuid())
+  billId     String     @unique
+  bill       Bill       @relation(fields: [billId], references: [id])
+  token      String     @unique
+  status     ExitStatus @default(CREATED)
+  createdAt  DateTime   @default(now())
+  verifiedAt DateTime?
+}

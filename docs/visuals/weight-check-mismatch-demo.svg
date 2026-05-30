@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="900" viewBox="0 0 1400 900">
+  <defs>
+    <style>
+      .bg { fill: #F8FAFC; }
+      .card { fill: #FFFFFF; stroke: #E5E7EB; stroke-width: 2; }
+      .title { fill: #111827; font: 800 42px Arial, sans-serif; }
+      .h { fill: #111827; font: 800 28px Arial, sans-serif; }
+      .text { fill: #6B7280; font: 700 20px Arial, sans-serif; }
+      .small { fill: #6B7280; font: 700 16px Arial, sans-serif; }
+      .mono { fill: #111827; font: 800 22px "Courier New", monospace; }
+      .blue { fill: #2563EB; }
+      .red { fill: #EF4444; }
+      .orange { fill: #F59E0B; }
+      .pale-blue { fill: #EFF6FF; }
+      .pale-red { fill: #FEF2F2; }
+      .pale-orange { fill: #FFFBEB; }
+      .line { stroke: #2563EB; stroke-width: 5; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+      .line-red { stroke: #EF4444; stroke-width: 5; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+      .line-orange { stroke: #F59E0B; stroke-width: 5; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="1400" height="900"/>
+  <text x="70" y="85" class="title">Weight Mismatch / Fraud Alert Demo</text>
+  <text x="70" y="122" class="text">Scenario: customer scanned milk and bread, but an extra unscanned rice bag is placed in the cart.</text>
+
+  <rect x="70" y="170" width="390" height="590" rx="34" class="card"/>
+  <circle cx="145" cy="245" r="42" class="pale-blue"/>
+  <path d="M124 244h46l-8 48h-30l-8-48zM132 244l9-26M164 244l-12-26M133 304h1M162 304h1" class="line"/>
+  <text x="105" y="340" class="h">Scanned Items</text>
+  <rect x="105" y="390" width="320" height="64" rx="18" class="pale-blue"/>
+  <text x="128" y="430" class="mono">Milk 0.53kg x 1</text>
+  <rect x="105" y="472" width="320" height="64" rx="18" class="pale-blue"/>
+  <text x="128" y="512" class="mono">Bread 0.40kg x 1</text>
+  <rect x="105" y="555" width="320" height="64" rx="18" class="pale-orange"/>
+  <text x="128" y="595" class="mono">Expected: 0.93kg</text>
+  <text x="105" y="675" class="text">System expects only the</text>
+  <text x="105" y="705" class="text">products scanned by app.</text>
+
+  <path d="M485 465h110" class="line-orange"/>
+  <path d="M575 445l32 20-32 20" class="line-orange"/>
+
+  <rect x="630" y="170" width="360" height="590" rx="34" class="card"/>
+  <circle cx="705" cy="245" r="42" class="pale-orange"/>
+  <path d="M680 286h50M705 224v62M672 254h66M672 254l-18 42h36l-18-42zM738 254l-18 42h36l-18-42z" class="line-orange"/>
+  <text x="665" y="340" class="h">Actual Cart Weight</text>
+  <rect x="665" y="390" width="290" height="76" rx="20" class="pale-red"/>
+  <text x="690" y="437" class="mono">Actual: 1.94kg</text>
+  <rect x="665" y="510" width="290" height="96" rx="20" class="pale-orange"/>
+  <text x="690" y="548" class="small">Extra unscanned item</text>
+  <text x="690" y="585" class="mono">Rice bag +1.00kg</text>
+  <text x="665" y="675" class="text">Load cell detects more</text>
+  <text x="665" y="705" class="text">weight than expected.</text>
+
+  <path d="M1015 465h90" class="line-red"/>
+  <path d="M1085 445l32 20-32 20" class="line-red"/>
+
+  <rect x="1130" y="170" width="220" height="590" rx="34" class="card"/>
+  <circle cx="1240" cy="245" r="46" class="pale-red"/>
+  <path d="M1218 222l44 44M1262 222l-44 44" class="line-red"/>
+  <text x="1170" y="340" class="h">Result</text>
+  <rect x="1160" y="390" width="160" height="58" rx="29" class="pale-red"/>
+  <text x="1192" y="428" fill="#EF4444" font-family="Arial, sans-serif" font-size="22" font-weight="800">FAILED</text>
+  <text x="1160" y="500" class="text">Variance: 108.6%</text>
+  <text x="1160" y="535" class="text">Limit: 2%</text>
+  <text x="1160" y="590" class="text">Payment blocked</text>
+  <text x="1160" y="625" class="text">Admin alerted</text>
+
+  <rect x="70" y="790" width="1280" height="70" rx="24" class="pale-red"/>
+  <text x="105" y="835" fill="#991B1B" font-family="Arial, sans-serif" font-size="24" font-weight="800">Final decision: mismatch creates fraud event, blocks payment, and sends the cart for staff review.</text>
+</svg>

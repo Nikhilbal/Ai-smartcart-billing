@@ -1,0 +1,79 @@
+### Health
+GET http://localhost:4000/health
+
+### Customer login
+POST http://localhost:4000/api/auth/customer-login
+Content-Type: application/json
+
+{
+  "mobile": "9876543210"
+}
+
+### Verify OTP
+POST http://localhost:4000/api/auth/verify-otp
+Content-Type: application/json
+
+{
+  "mobile": "9876543210",
+  "otp": "123456"
+}
+
+### Products
+GET http://localhost:4000/api/products
+
+### Product by barcode
+GET http://localhost:4000/api/products/barcode/8901063150853
+
+### Create cart
+POST http://localhost:4000/api/cart/create
+Content-Type: application/json
+
+{
+  "userId": "replace-user-id"
+}
+
+### Add item
+POST http://localhost:4000/api/cart/add-item
+Content-Type: application/json
+
+{
+  "cartId": "replace-cart-id",
+  "barcode": "8901063150853",
+  "quantity": 1
+}
+
+### IoT weight reading
+POST http://localhost:4000/api/iot/weight
+Content-Type: application/json
+
+{
+  "cartId": "replace-cart-id",
+  "weightKg": 0.532,
+  "deviceId": "esp32-scale-01"
+}
+
+### Verify weight
+POST http://localhost:4000/api/weight/verify
+Content-Type: application/json
+
+{
+  "cartId": "replace-cart-id",
+  "actualWeightKg": 0.532
+}
+
+### UPI payment
+POST http://localhost:4000/api/payment/upi
+Content-Type: application/json
+
+{
+  "cartId": "replace-cart-id",
+  "upiId": "raj123@okaxis"
+}
+
+### Generate bill
+POST http://localhost:4000/api/bills/generate
+Content-Type: application/json
+
+{
+  "cartId": "replace-cart-id"
+}

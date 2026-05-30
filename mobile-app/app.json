@@ -1,0 +1,32 @@
+{
+  "expo": {
+    "name": "Smart Cart",
+    "slug": "smart-cart",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "smartcart",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.smartcart.billing"
+    },
+    "android": {
+      "package": "com.smartcart.billing",
+      "permissions": [
+        "CAMERA"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Smart Cart to scan product barcodes."
+        }
+      ],
+      "expo-font"
+    ]
+  }
+}

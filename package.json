@@ -1,0 +1,18 @@
+{
+  "name": "smart-cart-billing-system",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Smart Cart Billing System monorepo with Expo mobile app, React admin dashboard, Express API, FastAPI AI service, and IoT examples.",
+  "scripts": {
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:admin": "npm --prefix admin-dashboard run dev",
+    "dev:mobile": "npm --prefix mobile-app run start",
+    "dev:ai": "cd ai-service && uvicorn app.main:app --reload --port 8001",
+    "seed": "npm --prefix backend run seed"
+  },
+  "workspaces": [
+    "backend",
+    "admin-dashboard",
+    "mobile-app"
+  ]
+}
