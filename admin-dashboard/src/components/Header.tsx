@@ -4,6 +4,7 @@ import { PageKey } from "./Sidebar";
 const titles: Record<PageKey, string> = {
   dashboard: "Dashboard Overview",
   inventory: "Inventory Management",
+  reorders: "Reorder Management",
   fraud: "Fraud Detection",
   carts: "Real-time Cart Monitoring",
   counter: "Cash Counter Verification",

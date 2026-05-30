@@ -1,11 +1,12 @@
-import { Banknote, BarChart3, Boxes, CreditCard, Grid2X2, LogOut, RadioTower, Shield, Users } from "lucide-react";
+import { Banknote, BarChart3, Boxes, ClipboardCheck, CreditCard, Grid2X2, LogOut, RadioTower, Shield, Users } from "lucide-react";
 import { cn } from "../lib/utils";
 
-export type PageKey = "dashboard" | "inventory" | "fraud" | "carts" | "sales" | "customers" | "billing" | "counter";
+export type PageKey = "dashboard" | "inventory" | "fraud" | "carts" | "sales" | "customers" | "billing" | "counter" | "reorders";
 
 const items = [
   { key: "dashboard", label: "Dashboard", icon: Grid2X2 },
   { key: "inventory", label: "Inventory", icon: Boxes, count: 4 },
+  { key: "reorders", label: "Reorders", icon: ClipboardCheck },
   { key: "fraud", label: "Fraud Detection", icon: Shield },
   { key: "carts", label: "Live Carts", icon: RadioTower },
   { key: "counter", label: "Cash Counter", icon: Banknote, count: 1 },

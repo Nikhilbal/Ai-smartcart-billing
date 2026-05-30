@@ -6,6 +6,8 @@ import { inr } from "../lib/utils";
 import { Badge, Button, Card } from "../components/ui";
 import type { BillingFilter } from "../App";
 import type { PageKey } from "../components/Sidebar";
+import type { Product } from "../data/mock";
+import type { ReorderRequest } from "../types/reorder";
 
 const metrics = [
   { label: "Today's Sales", value: "₹1,45,230", icon: "💰", badge: "+12% vs YD", tone: "bg-emerald-50 text-success", page: "sales" as PageKey },
@@ -16,9 +18,13 @@ const metrics = [
 
 type Props = {
   onNavigate: (page: PageKey, filter?: BillingFilter) => void;
+  onReorder: (product: Product) => void;
+  reorderRequests: ReorderRequest[];
 };
 
-export function DashboardOverview({ onNavigate }: Props) {
+export function DashboardOverview({ onNavigate, onReorder, reorderRequests }: Props) {
+  const openReorders = reorderRequests.filter((request) => request.status !== "RECEIVED");
+
   return (
     <div className="space-y-8">
       <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
@@ -42,17 +48,25 @@ export function DashboardOverview({ onNavigate }: Props) {
           <Badge className="bg-danger text-white">15 unread</Badge>
         </div>
         <div className="space-y-4">
-          {alerts.slice(0, 3).map((alert) => (
+          {alerts.slice(0, 3).map((alert) => {
+            const existingRequest = openReorders.find((request) => request.productId === alert.product.id);
+            return (
             <div key={alert.id} className="flex items-center gap-5 rounded-[18px] border border-red-200 bg-red-50 p-4 text-red-800">
               <img src={alert.product.image} className="h-16 w-16 rounded-2xl object-cover" alt={alert.product.name} />
               <AlertTriangle size={22} />
               <div className="min-w-0 flex-1">
                 <div className="truncate text-lg font-extrabold">{alert.text}</div>
                 <div className="mt-1 text-sm font-semibold">Minimum: 50 · Supplier: {alert.product.supplier}</div>
+                {existingRequest ? <div className="mt-1 font-mono text-xs font-black text-brand">PO active: {existingRequest.id} · {existingRequest.status}</div> : null}
               </div>
-              <Button className="bg-danger text-white">Reorder</Button>
+              {existingRequest ? (
+                <Button className="bg-brand text-white" onClick={() => onNavigate("reorders")}>Track PO</Button>
+              ) : (
+                <Button className="bg-danger text-white" onClick={() => onReorder(alert.product)}>Reorder</Button>
+              )}
             </div>
-          ))}
+            );
+          })}
           <button type="button" onClick={() => onNavigate("fraud")} className="flex w-full items-center gap-5 rounded-[18px] border border-yellow-300 bg-yellow-50 p-5 text-left text-amber-800 transition hover:-translate-y-0.5">
             <AlertTriangle size={24} />
             <div className="flex-1">

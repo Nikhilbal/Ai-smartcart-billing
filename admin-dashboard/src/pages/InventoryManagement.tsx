@@ -1,4 +1,4 @@
-import { Edit3, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
+import { Edit3, PackagePlus, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { products as initialProducts, Product } from "../data/mock";
 import { cn, inr } from "../lib/utils";
@@ -10,7 +10,7 @@ function statusTone(status: Product["status"]) {
   return "bg-red-50 text-danger";
 }
 
-export function InventoryManagement() {
+export function InventoryManagement({ onReorder }: { onReorder: (product: Product) => void }) {
   const [products, setProducts] = useState(initialProducts);
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<Product | null>(null);
@@ -89,6 +89,7 @@ export function InventoryManagement() {
                   <td className="px-6 py-5">
                     <div className="flex gap-3">
                       <Button onClick={() => setEditing(product)} className="bg-blue-50 p-3 text-brand"><Edit3 size={18} /></Button>
+                      {product.stock < product.min ? <Button onClick={() => onReorder(product)} className="bg-orange-50 p-3 text-warning"><PackagePlus size={18} /></Button> : null}
                       <Button onClick={() => restock(product)} className="bg-emerald-50 p-3 text-success"><RefreshCw size={18} /></Button>
                       <Button onClick={() => remove(product.id)} className="bg-red-50 p-3 text-danger"><Trash2 size={18} /></Button>
                     </div>

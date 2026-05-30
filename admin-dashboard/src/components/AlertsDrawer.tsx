@@ -3,14 +3,21 @@ import { alerts } from "../data/mock";
 import { cn } from "../lib/utils";
 import { DetailDrawer, DetailGrid } from "./DetailDrawer";
 import { Badge, Button } from "./ui";
+import type { Product } from "../data/mock";
+import type { ReorderRequest } from "../types/reorder";
 
 type Props = {
   open: boolean;
   onClose: () => void;
   onInventory: () => void;
+  onReorder: (product: Product) => void;
+  onReorders: () => void;
+  reorderRequests: ReorderRequest[];
 };
 
-export function AlertsDrawer({ open, onClose, onInventory }: Props) {
+export function AlertsDrawer({ open, onClose, onInventory, onReorder, onReorders, reorderRequests }: Props) {
+  const openReorders = reorderRequests.filter((request) => request.status !== "RECEIVED");
+
   return (
     <DetailDrawer open={open} onClose={onClose} title="Admin Alerts" subtitle={`${alerts.length} stock alerts need attention`}>
       <div className="space-y-4">
@@ -22,7 +29,9 @@ export function AlertsDrawer({ open, onClose, onInventory }: Props) {
           </div>
         ) : null}
 
-        {alerts.map((alert) => (
+        {alerts.map((alert) => {
+          const existingRequest = openReorders.find((request) => request.productId === alert.product.id);
+          return (
           <div key={alert.id} className={cn("rounded-[22px] border p-5", alert.severity === "CRITICAL" ? "border-red-200 bg-red-50" : "border-yellow-200 bg-yellow-50")}>
             <div className="flex items-start gap-4">
               <img src={alert.product.image} className="h-16 w-16 rounded-2xl object-cover" alt={alert.product.name} />
@@ -33,6 +42,7 @@ export function AlertsDrawer({ open, onClose, onInventory }: Props) {
                   <Badge className={alert.severity === "CRITICAL" ? "bg-red-100 text-danger" : "bg-yellow-100 text-warning"}>{alert.severity}</Badge>
                 </div>
                 <p className="mt-2 text-sm font-bold text-gray-600">Supplier: {alert.product.supplier}</p>
+                {existingRequest ? <p className="mt-2 font-mono text-xs font-black text-brand">Purchase order {existingRequest.id} is {existingRequest.status}</p> : null}
               </div>
             </div>
             <div className="mt-4">
@@ -47,11 +57,23 @@ export function AlertsDrawer({ open, onClose, onInventory }: Props) {
                 ]}
               />
             </div>
-            <Button className="mt-4 w-full bg-danger py-3 text-white" onClick={onInventory}>
-              Open Inventory & Reorder
-            </Button>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <Button className="border border-border bg-white py-3 text-gray-700" onClick={onInventory}>
+                Open Inventory
+              </Button>
+              {existingRequest ? (
+                <Button className="bg-brand py-3 text-white" onClick={onReorders}>
+                  Track Purchase Order
+                </Button>
+              ) : (
+                <Button className="bg-danger py-3 text-white" onClick={() => onReorder(alert.product)}>
+                  Reorder Stock
+                </Button>
+              )}
+            </div>
           </div>
-        ))}
+          );
+        })}
       </div>
     </DetailDrawer>
   );
