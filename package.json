@@ -8,6 +8,9 @@
     "dev:admin": "npm --prefix admin-dashboard run dev",
     "dev:mobile": "npm --prefix mobile-app run start",
     "dev:ai": "cd ai-service && uvicorn app.main:app --reload --port 8001",
+    "build:admin": "npm --prefix admin-dashboard run build",
+    "build:customer": "npm --prefix mobile-app run build:web",
+    "build:backend": "npm --prefix backend run build",
     "seed": "npm --prefix backend run seed"
   },
   "workspaces": [

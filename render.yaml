@@ -2,7 +2,7 @@ services:
   - type: web
     name: smart-cart-admin-ui
     runtime: static
-    buildCommand: npm --prefix admin-dashboard ci && npm --prefix admin-dashboard run build
+    buildCommand: npm ci && npm run build:admin
     staticPublishPath: admin-dashboard/dist
     routes:
       - type: rewrite
@@ -15,7 +15,7 @@ services:
   - type: web
     name: smart-cart-customer-ui
     runtime: static
-    buildCommand: npm --prefix mobile-app ci && npm --prefix mobile-app run build:web
+    buildCommand: npm ci && npm run build:customer
     staticPublishPath: mobile-app/dist
     routes:
       - type: rewrite
