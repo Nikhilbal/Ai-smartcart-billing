@@ -1,5 +1,31 @@
 services:
   - type: web
+    name: smart-cart-admin-ui
+    runtime: static
+    buildCommand: npm --prefix admin-dashboard ci && npm --prefix admin-dashboard run build
+    staticPublishPath: admin-dashboard/dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        sync: false
+
+  - type: web
+    name: smart-cart-customer-ui
+    runtime: static
+    buildCommand: npm --prefix mobile-app ci && npm --prefix mobile-app run build:web
+    staticPublishPath: mobile-app/dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: EXPO_PUBLIC_API_URL
+        sync: false
+
+  - type: web
     name: smart-cart-backend
     runtime: node
     rootDir: backend
