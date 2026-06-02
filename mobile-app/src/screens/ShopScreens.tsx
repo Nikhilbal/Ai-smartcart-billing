@@ -5,6 +5,7 @@ import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View 
 import { ProductCard } from "../components/ProductCard";
 import { Card, Header, Money, PrimaryButton, Screen } from "../components/Ui";
 import { categories, products } from "../data/products";
+import { fetchProductByBarcode } from "../services/api";
 import { useCustomerStore } from "../store/customerStore";
 import { getCartOffers, getDiscountTotal, getExpectedWeight, getSubtotal, getTax, getTotal, useCartStore } from "../store/cartStore";
 import { colors, shadow } from "../theme";
@@ -93,11 +94,29 @@ export function ScannerScreen({ navigation }: any) {
   const [scanned, setScanned] = useState(false);
   const add = useCartStore((state) => state.add);
 
-  function handleBarcode(data: string) {
-    const product = products.find((item) => item.barcode === data) ?? products[1];
-    add(product);
+  async function handleBarcode(data: string) {
     setScanned(true);
-    Alert.alert("Item added", `${product.name} added to cart`, [{ text: "View Cart", onPress: () => navigation.navigate("Cart") }]);
+    let product = undefined;
+
+    try {
+      product = await fetchProductByBarcode(data);
+    } catch {
+      product = products.find((item) => item.barcode === data);
+    }
+
+    if (!product) {
+      Alert.alert("Product not found", `Barcode ${data} is not in inventory yet. Add it in admin inventory before selling.`, [
+        { text: "Scan Again", onPress: () => setScanned(false) },
+        { text: "Browse", onPress: () => navigation.navigate("Main") }
+      ]);
+      return;
+    }
+
+    add(product);
+    Alert.alert("Item added", `${product.name} added to cart`, [
+      { text: "Scan More", onPress: () => setScanned(false) },
+      { text: "View Cart", onPress: () => navigation.navigate("Cart") }
+    ]);
   }
 
   return (
@@ -110,8 +129,8 @@ export function ScannerScreen({ navigation }: any) {
         <View style={styles.scanFrame} />
       </View>
       <View style={{ padding: 22, gap: 12 }}>
-        <Text style={styles.muted}>Demo barcodes</Text>
-        {products.slice(0, 4).map((product) => <Pressable key={product.id} style={styles.manualBarcode} onPress={() => handleBarcode(product.barcode)}><Text style={styles.manualName}>{product.name}</Text><Text style={styles.manualCode}>{product.barcode}</Text></Pressable>)}
+        <Text style={styles.muted}>Registered barcodes</Text>
+        {products.slice(0, 5).map((product) => <Pressable key={product.id} style={styles.manualBarcode} onPress={() => handleBarcode(product.barcode)}><Text style={styles.manualName}>{product.name}</Text><Text style={styles.manualCode}>{product.barcode}</Text></Pressable>)}
       </View>
     </Screen>
   );

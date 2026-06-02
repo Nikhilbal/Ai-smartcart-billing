@@ -8,6 +8,7 @@ from pydantic import BaseModel
 app = FastAPI(title="Smart Cart AI Service", version="1.0.0")
 
 PRODUCTS = [
+    {"id": "p9", "name": "PATANJALI DOODH MILK BISCUITS", "category": "Biscuits", "price": 5, "weightKg": 0.035, "score": 0.84},
     {"id": "p1", "name": "Brown Bread", "category": "Bakery", "price": 45, "weightKg": 0.4, "score": 0.87},
     {"id": "p2", "name": "Milk (Amul 500ml)", "category": "Dairy", "price": 55, "weightKg": 0.53, "score": 0.93},
     {"id": "p3", "name": "Eggs (10-pack)", "category": "Dairy", "price": 65, "weightKg": 0.6, "score": 0.81},
@@ -23,6 +24,7 @@ PAIRINGS = {
     "Milk (Amul 500ml)": ["Brown Bread", "Tea (500g)"],
     "Basmati Rice (1kg)": ["Refined Oil (1L)"],
     "Tea (500g)": ["Milk (Amul 500ml)", "Honey (500ml)"],
+    "PATANJALI DOODH MILK BISCUITS": ["Milk (Amul 500ml)", "Tea (500g)"],
 }
 
 

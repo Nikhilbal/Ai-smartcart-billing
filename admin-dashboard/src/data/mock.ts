@@ -19,10 +19,12 @@ export const productImages = {
   oil: "https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&w=500&q=80",
   butter: "https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?auto=format&fit=crop&w=500&q=80",
   tea: "https://images.unsplash.com/photo-1564890369478-c89ca6d9cde9?auto=format&fit=crop&w=500&q=80",
-  honey: "https://images.unsplash.com/photo-1587049352846-4a222e784d38?auto=format&fit=crop&w=500&q=80"
+  honey: "https://images.unsplash.com/photo-1587049352846-4a222e784d38?auto=format&fit=crop&w=500&q=80",
+  biscuits: "https://images.unsplash.com/photo-1558961363-fa8fdf82db35?auto=format&fit=crop&w=500&q=80"
 };
 
 export const products: Product[] = [
+  { id: "p9", name: "PATANJALI DOODH MILK BISCUITS", barcode: "8906032018513", category: "Biscuits", price: 5, stock: 90, min: 50, status: "OK", supplier: "Patanjali Foods", image: productImages.biscuits },
   { id: "p1", name: "Brown Bread", barcode: "8901030890617", category: "Bakery", price: 45, stock: 156, min: 50, status: "OK", supplier: "Mumbai Bakers", image: productImages.bread },
   { id: "p2", name: "Milk (Amul 500ml)", barcode: "8901063150853", category: "Dairy", price: 55, stock: 38, min: 50, status: "LOW", supplier: "Amul Dairy", image: productImages.milk },
   { id: "p3", name: "Eggs (10-pack)", barcode: "8901030890618", category: "Dairy", price: 65, stock: 12, min: 50, status: "CRITICAL", supplier: "Happy Farms", image: productImages.eggs },

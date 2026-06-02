@@ -14,6 +14,19 @@ export type Product = {
 
 export const products: Product[] = [
   {
+    id: "p9",
+    name: "PATANJALI DOODH MILK BISCUITS",
+    category: "Biscuits",
+    barcode: "8906032018513",
+    price: 5,
+    mrp: 5,
+    weightKg: 0.035,
+    stock: 90,
+    image: "https://images.unsplash.com/photo-1558961363-fa8fdf82db35?auto=format&fit=crop&w=800&q=80",
+    description: "35g Patanjali Doodh Milk Biscuits pack for quick scan-and-shop checkout.",
+    supplier: "Patanjali Foods"
+  },
+  {
     id: "p1",
     name: "Brown Bread",
     category: "Bakery",
@@ -119,7 +132,7 @@ export const products: Product[] = [
   }
 ];
 
-export const categories = ["All", "Dairy", "Bakery", "Grains", "Oils", "Beverages", "Foods"];
+export const categories = ["All", "Biscuits", "Dairy", "Bakery", "Grains", "Oils", "Beverages", "Foods"];
 
 export const onboarding = [
   {
