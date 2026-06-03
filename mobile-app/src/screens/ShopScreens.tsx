@@ -1,10 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
-import { CameraView, useCameraPermissions } from "expo-camera";
-import { useMemo, useState } from "react";
+import { CameraView, useCameraPermissions, type BarcodeType } from "expo-camera";
+import { useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Image, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { ProductCard } from "../components/ProductCard";
 import { Card, Header, Money, PrimaryButton, Screen } from "../components/Ui";
-import { categories, products } from "../data/products";
+import { categories, products, type Product } from "../data/products";
 import { fetchProductByBarcode } from "../services/api";
 import { useCustomerStore } from "../store/customerStore";
 import { getCartOffers, getDiscountTotal, getExpectedWeight, getSubtotal, getTax, getTotal, useCartStore } from "../store/cartStore";
@@ -34,6 +34,8 @@ function SectionTitle({ title, right, icon }: { title: string; right?: string; i
     </View>
   );
 }
+
+const supportedBarcodeTypes: BarcodeType[] = ["ean13", "ean8", "upc_a", "upc_e", "code128", "code39", "code93", "itf14", "codabar", "qr"];
 
 export function HomeScreen({ navigation }: any) {
   const [query, setQuery] = useState("");
@@ -94,8 +96,21 @@ export function ScannerScreen({ navigation }: any) {
   const [scanned, setScanned] = useState(false);
   const [requestingPermission, setRequestingPermission] = useState(false);
   const [manualBarcode, setManualBarcode] = useState("");
+  const manualBarcodeRef = useRef("");
+  const [scanResult, setScanResult] = useState<{ type: "success" | "error"; title: string; message: string; product?: Product } | null>(null);
   const add = useCartStore((state) => state.add);
   const cameraReady = permission?.granted;
+
+  function normalizeBarcode(data: string) {
+    return String(data).replace(/\D/g, "");
+  }
+
+  function updateManualBarcode(value: string) {
+    const barcode = normalizeBarcode(value);
+    manualBarcodeRef.current = barcode;
+    setManualBarcode(barcode);
+    if (scanResult?.type === "error") setScanResult(null);
+  }
 
   async function requestCameraAccess() {
     setRequestingPermission(true);
@@ -117,34 +132,55 @@ export function ScannerScreen({ navigation }: any) {
   }
 
   async function handleBarcode(data: string) {
-    setScanned(true);
-    let product = undefined;
+    const barcode = normalizeBarcode(data);
+    if (!/^\d{8,14}$/.test(barcode)) {
+      setScanResult({
+        type: "error",
+        title: "Invalid barcode",
+        message: "Enter or scan the 8 to 14 digit number printed below the product bars."
+      });
+      return;
+    }
 
-    try {
-      product = await fetchProductByBarcode(data);
-    } catch {
-      product = products.find((item) => item.barcode === data);
+    setScanned(true);
+    setScanResult(null);
+    let product: Product | undefined = products.find((item) => normalizeBarcode(item.barcode) === barcode);
+
+    if (!product) {
+      try {
+        product = await fetchProductByBarcode(barcode);
+      } catch {
+        product = undefined;
+      }
     }
 
     if (!product) {
-      Alert.alert("Product not found", `Barcode ${data} is not in inventory yet. Add it in admin inventory before selling.`, [
-        { text: "Scan Again", onPress: () => setScanned(false) },
-        { text: "Browse", onPress: () => navigation.navigate("Main") }
-      ]);
+      setScanResult({
+        type: "error",
+        title: "Product not found",
+        message: `Barcode ${barcode} is not in inventory yet. Add it in admin inventory before selling.`
+      });
       return;
     }
 
     add(product);
-    Alert.alert("Item added", `${product.name} added to cart`, [
-      { text: "Scan More", onPress: () => setScanned(false) },
-      { text: "View Cart", onPress: () => navigation.navigate("Cart") }
-    ]);
+    updateManualBarcode("");
+    setScanResult({
+      type: "success",
+      title: "Added to cart",
+      message: `${product.name} · ₹${product.price} · ${product.weightKg} kg`,
+      product
+    });
   }
 
-  function handleManualBarcode() {
-    const code = manualBarcode.trim();
+  function handleManualBarcode(input = manualBarcodeRef.current) {
+    const code = normalizeBarcode(input);
     if (!/^\d{8,14}$/.test(code)) {
-      Alert.alert("Invalid barcode", "Enter the 8 to 14 digit barcode printed below the product bars.");
+      setScanResult({
+        type: "error",
+        title: "Invalid barcode",
+        message: "Enter the 8 to 14 digit barcode printed below the product bars."
+      });
       return;
     }
     handleBarcode(code);
@@ -155,7 +191,7 @@ export function ScannerScreen({ navigation }: any) {
       <ScrollView contentContainerStyle={{ paddingBottom: 26 }} showsVerticalScrollIndicator={false}>
         <View style={{ paddingHorizontal: 22 }}><Header title="Scan Barcode" subtitle="Point camera at product code" right={<IconButton name="flash-outline" />} /></View>
         <View style={styles.cameraWrap}>
-          {cameraReady ? <CameraView style={StyleSheet.absoluteFill} barcodeScannerSettings={{ barcodeTypes: ["ean13", "ean8", "qr"] }} onBarcodeScanned={scanned ? undefined : ({ data }) => handleBarcode(data)} /> : (
+          {cameraReady ? <CameraView style={StyleSheet.absoluteFill} barcodeScannerSettings={{ barcodeTypes: supportedBarcodeTypes }} onBarcodeScanned={scanned ? undefined : ({ data }) => handleBarcode(data)} /> : (
             <View style={styles.cameraFallback}>
               {requestingPermission ? <ActivityIndicator size="large" color={colors.primary} /> : <Ionicons name="camera-outline" size={64} color={colors.primary} />}
               <Text style={styles.cameraTitle}>{requestingPermission ? "Requesting camera access" : "Camera permission required"}</Text>
@@ -171,11 +207,46 @@ export function ScannerScreen({ navigation }: any) {
           {cameraReady ? <View style={styles.scanFrame} /> : null}
         </View>
         <View style={{ padding: 22, gap: 12 }}>
+          {cameraReady ? <Text style={styles.scanHint}>Keep the full barcode inside the green frame. If camera detection is slow, enter the printed number below.</Text> : null}
           <Text style={styles.muted}>Enter barcode manually</Text>
           <View style={styles.manualEntry}>
-            <TextInput keyboardType="number-pad" maxLength={14} value={manualBarcode} onChangeText={setManualBarcode} placeholder="8906032018513" placeholderTextColor="#9CA3AF" style={styles.manualInput} />
-            <Pressable style={styles.manualSubmit} onPress={handleManualBarcode}><Ionicons name="arrow-forward" size={22} color="white" /></Pressable>
+            <TextInput
+              keyboardType="number-pad"
+              maxLength={18}
+              value={manualBarcode}
+              onChangeText={updateManualBarcode}
+              onKeyPress={(event) => {
+                if (event.nativeEvent.key === "Enter") handleManualBarcode();
+              }}
+              onSubmitEditing={(event) => handleManualBarcode(event.nativeEvent.text)}
+              placeholder="8906032018513"
+              placeholderTextColor="#9CA3AF"
+              returnKeyType="done"
+              style={styles.manualInput}
+            />
+            <Pressable style={styles.manualSubmit} onPress={() => handleManualBarcode()}><Ionicons name="arrow-forward" size={22} color="white" /></Pressable>
           </View>
+          {scanResult ? (
+            <Card style={[styles.scanResultCard, scanResult.type === "success" ? styles.scanResultSuccess : styles.scanResultError]}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                <Ionicons name={scanResult.type === "success" ? "checkmark-circle-outline" : "alert-circle-outline"} size={28} color={scanResult.type === "success" ? colors.success : colors.danger} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.scanResultTitle}>{scanResult.title}</Text>
+                  <Text style={styles.scanResultMessage}>{scanResult.message}</Text>
+                </View>
+              </View>
+              <View style={styles.scanResultActions}>
+                <Pressable style={styles.scanAgainButton} onPress={() => { setScanned(false); setScanResult(null); }}>
+                  <Text style={styles.scanAgainText}>Scan More</Text>
+                </Pressable>
+                {scanResult.type === "success" ? (
+                  <Pressable style={styles.viewCartButton} onPress={() => navigation.navigate("Cart")}>
+                    <Text style={styles.viewCartText}>View Cart</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            </Card>
+          ) : null}
           <Text style={styles.muted}>Registered barcodes</Text>
           {products.slice(0, 5).map((product) => <Pressable key={product.id} style={styles.manualBarcode} onPress={() => handleBarcode(product.barcode)}><Text style={styles.manualName}>{product.name}</Text><Text style={styles.manualCode}>{product.barcode}</Text></Pressable>)}
         </View>
@@ -362,9 +433,20 @@ const styles = StyleSheet.create({
   settingsButton: { marginTop: 14, borderRadius: 16, borderWidth: 1, borderColor: colors.primary, paddingHorizontal: 18, paddingVertical: 10, backgroundColor: "white" },
   settingsText: { color: colors.primary, fontSize: 15, fontWeight: "900" },
   scanFrame: { position: "absolute", left: 58, right: 58, top: 115, bottom: 115, borderWidth: 4, borderColor: colors.success, borderRadius: 28 },
+  scanHint: { color: colors.muted, fontSize: 15, lineHeight: 22, fontWeight: "800" },
   manualEntry: { height: 64, borderRadius: 20, borderWidth: 1, borderColor: colors.border, backgroundColor: "white", flexDirection: "row", alignItems: "center", paddingLeft: 18, paddingRight: 8 },
   manualInput: { flex: 1, color: colors.text, fontSize: 19, fontFamily: "Courier", fontWeight: "900" },
   manualSubmit: { width: 48, height: 48, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: colors.primary },
+  scanResultCard: { padding: 18, gap: 16 },
+  scanResultSuccess: { borderColor: "#A7F3D0", backgroundColor: "#ECFDF5" },
+  scanResultError: { borderColor: "#FECACA", backgroundColor: "#FEF2F2" },
+  scanResultTitle: { color: colors.text, fontSize: 18, fontWeight: "900" },
+  scanResultMessage: { marginTop: 4, color: colors.muted, fontSize: 15, lineHeight: 22, fontWeight: "800" },
+  scanResultActions: { flexDirection: "row", gap: 12 },
+  scanAgainButton: { flex: 1, borderRadius: 16, borderWidth: 1, borderColor: colors.border, alignItems: "center", paddingVertical: 12, backgroundColor: "white" },
+  scanAgainText: { color: colors.text, fontSize: 15, fontWeight: "900" },
+  viewCartButton: { flex: 1, borderRadius: 16, alignItems: "center", paddingVertical: 12, backgroundColor: colors.primary },
+  viewCartText: { color: "white", fontSize: 15, fontWeight: "900" },
   manualBarcode: { borderRadius: 18, padding: 16, backgroundColor: "white", flexDirection: "row", justifyContent: "space-between" },
   manualName: { color: colors.text, fontWeight: "900" },
   manualCode: { color: colors.muted, fontFamily: "Courier", fontWeight: "800" },
