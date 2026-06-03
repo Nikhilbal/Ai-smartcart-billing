@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useMemo, useState } from "react";
-import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Image, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { ProductCard } from "../components/ProductCard";
 import { Card, Header, Money, PrimaryButton, Screen } from "../components/Ui";
 import { categories, products } from "../data/products";
@@ -92,7 +92,29 @@ export function BrowseScreen({ navigation }: any) {
 export function ScannerScreen({ navigation }: any) {
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
+  const [requestingPermission, setRequestingPermission] = useState(false);
+  const [manualBarcode, setManualBarcode] = useState("");
   const add = useCartStore((state) => state.add);
+  const cameraReady = permission?.granted;
+
+  async function requestCameraAccess() {
+    setRequestingPermission(true);
+    try {
+      const result = await requestPermission();
+      if (!result.granted) {
+        Alert.alert(
+          "Camera access needed",
+          result.canAskAgain
+            ? "Please choose Allow so Smart Cart can scan product barcodes."
+            : "Camera permission is blocked. Open your phone settings and allow camera access for Smart Cart."
+        );
+      }
+    } catch {
+      Alert.alert("Camera unavailable", "Could not open camera permission. You can still enter the barcode manually below.");
+    } finally {
+      setRequestingPermission(false);
+    }
+  }
 
   async function handleBarcode(data: string) {
     setScanned(true);
@@ -119,19 +141,45 @@ export function ScannerScreen({ navigation }: any) {
     ]);
   }
 
+  function handleManualBarcode() {
+    const code = manualBarcode.trim();
+    if (!/^\d{8,14}$/.test(code)) {
+      Alert.alert("Invalid barcode", "Enter the 8 to 14 digit barcode printed below the product bars.");
+      return;
+    }
+    handleBarcode(code);
+  }
+
   return (
     <Screen padded={false}>
-      <View style={{ paddingHorizontal: 22 }}><Header title="Scan Barcode" subtitle="Point camera at product code" right={<IconButton name="flash-outline" />} /></View>
-      <View style={styles.cameraWrap}>
-        {permission?.granted ? <CameraView style={StyleSheet.absoluteFill} barcodeScannerSettings={{ barcodeTypes: ["ean13", "ean8", "qr"] }} onBarcodeScanned={scanned ? undefined : ({ data }) => handleBarcode(data)} /> : (
-          <View style={styles.cameraFallback}><Ionicons name="camera-outline" size={64} color={colors.primary} /><Text style={styles.cameraTitle}>Camera permission required</Text><PrimaryButton title="Allow Camera" onPress={() => requestPermission()} /></View>
-        )}
-        <View style={styles.scanFrame} />
-      </View>
-      <View style={{ padding: 22, gap: 12 }}>
-        <Text style={styles.muted}>Registered barcodes</Text>
-        {products.slice(0, 5).map((product) => <Pressable key={product.id} style={styles.manualBarcode} onPress={() => handleBarcode(product.barcode)}><Text style={styles.manualName}>{product.name}</Text><Text style={styles.manualCode}>{product.barcode}</Text></Pressable>)}
-      </View>
+      <ScrollView contentContainerStyle={{ paddingBottom: 26 }} showsVerticalScrollIndicator={false}>
+        <View style={{ paddingHorizontal: 22 }}><Header title="Scan Barcode" subtitle="Point camera at product code" right={<IconButton name="flash-outline" />} /></View>
+        <View style={styles.cameraWrap}>
+          {cameraReady ? <CameraView style={StyleSheet.absoluteFill} barcodeScannerSettings={{ barcodeTypes: ["ean13", "ean8", "qr"] }} onBarcodeScanned={scanned ? undefined : ({ data }) => handleBarcode(data)} /> : (
+            <View style={styles.cameraFallback}>
+              {requestingPermission ? <ActivityIndicator size="large" color={colors.primary} /> : <Ionicons name="camera-outline" size={64} color={colors.primary} />}
+              <Text style={styles.cameraTitle}>{requestingPermission ? "Requesting camera access" : "Camera permission required"}</Text>
+              <Text style={styles.cameraSub}>Allow camera access to scan real product barcodes like 8906032018513.</Text>
+              <PrimaryButton title={requestingPermission ? "Waiting..." : "Allow Camera"} onPress={requestCameraAccess} color={requestingPermission ? "#93C5FD" : colors.primary} />
+              {permission && !permission.granted && !permission.canAskAgain ? (
+                <Pressable style={styles.settingsButton} onPress={() => Linking.openSettings().catch(() => Alert.alert("Open settings", "Open phone settings and allow camera access for Smart Cart."))}>
+                  <Text style={styles.settingsText}>Open App Settings</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          )}
+          {cameraReady ? <View style={styles.scanFrame} /> : null}
+        </View>
+        <View style={{ padding: 22, gap: 12 }}>
+          <Text style={styles.muted}>Enter barcode manually</Text>
+          <View style={styles.manualEntry}>
+            <TextInput keyboardType="number-pad" maxLength={14} value={manualBarcode} onChangeText={setManualBarcode} placeholder="8906032018513" placeholderTextColor="#9CA3AF" style={styles.manualInput} />
+            <Pressable style={styles.manualSubmit} onPress={handleManualBarcode}><Ionicons name="arrow-forward" size={22} color="white" /></Pressable>
+          </View>
+          <Text style={styles.muted}>Registered barcodes</Text>
+          {products.slice(0, 5).map((product) => <Pressable key={product.id} style={styles.manualBarcode} onPress={() => handleBarcode(product.barcode)}><Text style={styles.manualName}>{product.name}</Text><Text style={styles.manualCode}>{product.barcode}</Text></Pressable>)}
+        </View>
+      </ScrollView>
     </Screen>
   );
 }
@@ -310,7 +358,13 @@ const styles = StyleSheet.create({
   cameraWrap: { height: 420, marginHorizontal: 22, borderRadius: 32, overflow: "hidden", backgroundColor: "#111827" },
   cameraFallback: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, backgroundColor: "#EFF6FF" },
   cameraTitle: { marginVertical: 20, color: colors.text, fontSize: 22, fontWeight: "900" },
+  cameraSub: { marginBottom: 18, color: colors.muted, textAlign: "center", fontSize: 16, lineHeight: 24, fontWeight: "800" },
+  settingsButton: { marginTop: 14, borderRadius: 16, borderWidth: 1, borderColor: colors.primary, paddingHorizontal: 18, paddingVertical: 10, backgroundColor: "white" },
+  settingsText: { color: colors.primary, fontSize: 15, fontWeight: "900" },
   scanFrame: { position: "absolute", left: 58, right: 58, top: 115, bottom: 115, borderWidth: 4, borderColor: colors.success, borderRadius: 28 },
+  manualEntry: { height: 64, borderRadius: 20, borderWidth: 1, borderColor: colors.border, backgroundColor: "white", flexDirection: "row", alignItems: "center", paddingLeft: 18, paddingRight: 8 },
+  manualInput: { flex: 1, color: colors.text, fontSize: 19, fontFamily: "Courier", fontWeight: "900" },
+  manualSubmit: { width: 48, height: 48, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: colors.primary },
   manualBarcode: { borderRadius: 18, padding: 16, backgroundColor: "white", flexDirection: "row", justifyContent: "space-between" },
   manualName: { color: colors.text, fontWeight: "900" },
   manualCode: { color: colors.muted, fontFamily: "Courier", fontWeight: "800" },
