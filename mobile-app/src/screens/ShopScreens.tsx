@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions, type BarcodeType } from "expo-camera";
 import { useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Image, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Image, Keyboard, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { ProductCard } from "../components/ProductCard";
 import { Card, Header, Money, PrimaryButton, Screen } from "../components/Ui";
 import { categories, products, type Product } from "../data/products";
@@ -97,6 +97,8 @@ export function ScannerScreen({ navigation }: any) {
   const [requestingPermission, setRequestingPermission] = useState(false);
   const [manualBarcode, setManualBarcode] = useState("");
   const manualBarcodeRef = useRef("");
+  const submittingBarcodeRef = useRef(false);
+  const [submittingBarcode, setSubmittingBarcode] = useState(false);
   const [scanResult, setScanResult] = useState<{ type: "success" | "error"; title: string; message: string; product?: Product } | null>(null);
   const add = useCartStore((state) => state.add);
   const cameraReady = permission?.granted;
@@ -139,41 +141,52 @@ export function ScannerScreen({ navigation }: any) {
         title: "Invalid barcode",
         message: "Enter or scan the 8 to 14 digit number printed below the product bars."
       });
-      return;
+      return false;
     }
 
+    if (submittingBarcodeRef.current) return false;
+    submittingBarcodeRef.current = true;
+    setSubmittingBarcode(true);
     setScanned(true);
     setScanResult(null);
-    let product: Product | undefined = products.find((item) => normalizeBarcode(item.barcode) === barcode);
+    let product: Product | undefined;
 
-    if (!product) {
-      try {
-        product = await fetchProductByBarcode(barcode);
-      } catch {
-        product = undefined;
+    try {
+      product = products.find((item) => normalizeBarcode(item.barcode) === barcode);
+
+      if (!product) {
+        try {
+          product = await fetchProductByBarcode(barcode);
+        } catch {
+          product = undefined;
+        }
       }
-    }
 
-    if (!product) {
+      if (!product) {
+        setScanResult({
+          type: "error",
+          title: "Product not found",
+          message: `Barcode ${barcode} is not in inventory yet. Add it in admin inventory before selling.`
+        });
+        return false;
+      }
+
+      add(product);
+      updateManualBarcode("");
       setScanResult({
-        type: "error",
-        title: "Product not found",
-        message: `Barcode ${barcode} is not in inventory yet. Add it in admin inventory before selling.`
+        type: "success",
+        title: "Added to cart",
+        message: `${product.name} · ₹${product.price} · ${product.weightKg} kg`,
+        product
       });
-      return;
+      return true;
+    } finally {
+      submittingBarcodeRef.current = false;
+      setSubmittingBarcode(false);
     }
-
-    add(product);
-    updateManualBarcode("");
-    setScanResult({
-      type: "success",
-      title: "Added to cart",
-      message: `${product.name} · ₹${product.price} · ${product.weightKg} kg`,
-      product
-    });
   }
 
-  function handleManualBarcode(input = manualBarcodeRef.current) {
+  async function handleManualBarcode(input = manualBarcodeRef.current || manualBarcode) {
     const code = normalizeBarcode(input);
     if (!/^\d{8,14}$/.test(code)) {
       setScanResult({
@@ -181,17 +194,54 @@ export function ScannerScreen({ navigation }: any) {
         title: "Invalid barcode",
         message: "Enter the 8 to 14 digit barcode printed below the product bars."
       });
-      return;
+      return false;
     }
-    handleBarcode(code);
+    return handleBarcode(code);
+  }
+
+  async function handleManualSubmitAndOpenCart() {
+    Keyboard.dismiss();
+    const code = manualBarcodeRef.current || manualBarcode;
+    const added = await handleManualBarcode(code);
+    if (added) navigation.navigate("Cart");
+  }
+
+  /*
+    Keep this block below the main submit helpers so scanner, keyboard Enter,
+    and the visible arrow all route through the same barcode lookup path.
+  */
+  function renderScanResult() {
+    if (!scanResult) return null;
+
+    return (
+      <Card style={[styles.scanResultCard, scanResult.type === "success" ? styles.scanResultSuccess : styles.scanResultError]}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+          <Ionicons name={scanResult.type === "success" ? "checkmark-circle-outline" : "alert-circle-outline"} size={28} color={scanResult.type === "success" ? colors.success : colors.danger} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.scanResultTitle}>{scanResult.title}</Text>
+            <Text style={styles.scanResultMessage}>{scanResult.message}</Text>
+          </View>
+        </View>
+        <View style={styles.scanResultActions}>
+          <Pressable style={styles.scanAgainButton} onPress={() => { setScanned(false); setScanResult(null); }}>
+            <Text style={styles.scanAgainText}>Scan More</Text>
+          </Pressable>
+          {scanResult.type === "success" ? (
+            <Pressable style={styles.viewCartButton} onPress={() => navigation.navigate("Cart")}>
+              <Text style={styles.viewCartText}>View Cart</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      </Card>
+    );
   }
 
   return (
     <Screen padded={false}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 26 }} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 26 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <View style={{ paddingHorizontal: 22 }}><Header title="Scan Barcode" subtitle="Point camera at product code" right={<IconButton name="flash-outline" />} /></View>
         <View style={styles.cameraWrap}>
-          {cameraReady ? <CameraView style={StyleSheet.absoluteFill} barcodeScannerSettings={{ barcodeTypes: supportedBarcodeTypes }} onBarcodeScanned={scanned ? undefined : ({ data }) => handleBarcode(data)} /> : (
+          {cameraReady ? <CameraView style={StyleSheet.absoluteFill} barcodeScannerSettings={{ barcodeTypes: supportedBarcodeTypes }} onBarcodeScanned={scanned || submittingBarcode ? undefined : ({ data }) => handleBarcode(data)} /> : (
             <View style={styles.cameraFallback}>
               {requestingPermission ? <ActivityIndicator size="large" color={colors.primary} /> : <Ionicons name="camera-outline" size={64} color={colors.primary} />}
               <Text style={styles.cameraTitle}>{requestingPermission ? "Requesting camera access" : "Camera permission required"}</Text>
@@ -216,37 +266,22 @@ export function ScannerScreen({ navigation }: any) {
               value={manualBarcode}
               onChangeText={updateManualBarcode}
               onKeyPress={(event) => {
-                if (event.nativeEvent.key === "Enter") handleManualBarcode();
+                if (event.nativeEvent.key === "Enter") handleManualSubmitAndOpenCart();
               }}
-              onSubmitEditing={(event) => handleManualBarcode(event.nativeEvent.text)}
+              onSubmitEditing={(event) => handleManualSubmitAndOpenCart()}
               placeholder="8906032018513"
               placeholderTextColor="#9CA3AF"
               returnKeyType="done"
               style={styles.manualInput}
             />
-            <Pressable style={styles.manualSubmit} onPress={() => handleManualBarcode()}><Ionicons name="arrow-forward" size={22} color="white" /></Pressable>
+            <Pressable accessibilityRole="button" hitSlop={14} style={[styles.manualSubmit, submittingBarcode && { backgroundColor: "#93C5FD" }]} onPress={handleManualSubmitAndOpenCart}>
+              {submittingBarcode ? <ActivityIndicator size="small" color="white" /> : <Ionicons name="arrow-forward" size={22} color="white" />}
+            </Pressable>
           </View>
-          {scanResult ? (
-            <Card style={[styles.scanResultCard, scanResult.type === "success" ? styles.scanResultSuccess : styles.scanResultError]}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-                <Ionicons name={scanResult.type === "success" ? "checkmark-circle-outline" : "alert-circle-outline"} size={28} color={scanResult.type === "success" ? colors.success : colors.danger} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.scanResultTitle}>{scanResult.title}</Text>
-                  <Text style={styles.scanResultMessage}>{scanResult.message}</Text>
-                </View>
-              </View>
-              <View style={styles.scanResultActions}>
-                <Pressable style={styles.scanAgainButton} onPress={() => { setScanned(false); setScanResult(null); }}>
-                  <Text style={styles.scanAgainText}>Scan More</Text>
-                </Pressable>
-                {scanResult.type === "success" ? (
-                  <Pressable style={styles.viewCartButton} onPress={() => navigation.navigate("Cart")}>
-                    <Text style={styles.viewCartText}>View Cart</Text>
-                  </Pressable>
-                ) : null}
-              </View>
-            </Card>
-          ) : null}
+          <Pressable style={[styles.manualAddButton, !manualBarcode && styles.manualAddButtonDisabled]} onPress={handleManualSubmitAndOpenCart}>
+            <Text style={styles.manualAddButtonText}>{submittingBarcode ? "Checking barcode..." : "Add Product from Barcode"}</Text>
+          </Pressable>
+          {renderScanResult()}
           <Text style={styles.muted}>Registered barcodes</Text>
           {products.slice(0, 5).map((product) => <Pressable key={product.id} style={styles.manualBarcode} onPress={() => handleBarcode(product.barcode)}><Text style={styles.manualName}>{product.name}</Text><Text style={styles.manualCode}>{product.barcode}</Text></Pressable>)}
         </View>
@@ -437,6 +472,9 @@ const styles = StyleSheet.create({
   manualEntry: { height: 64, borderRadius: 20, borderWidth: 1, borderColor: colors.border, backgroundColor: "white", flexDirection: "row", alignItems: "center", paddingLeft: 18, paddingRight: 8 },
   manualInput: { flex: 1, color: colors.text, fontSize: 19, fontFamily: "Courier", fontWeight: "900" },
   manualSubmit: { width: 48, height: 48, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: colors.primary },
+  manualAddButton: { minHeight: 54, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: colors.primary },
+  manualAddButtonDisabled: { backgroundColor: "#BFDBFE" },
+  manualAddButtonText: { color: "white", fontSize: 16, fontWeight: "900" },
   scanResultCard: { padding: 18, gap: 16 },
   scanResultSuccess: { borderColor: "#A7F3D0", backgroundColor: "#ECFDF5" },
   scanResultError: { borderColor: "#FECACA", backgroundColor: "#FEF2F2" },
