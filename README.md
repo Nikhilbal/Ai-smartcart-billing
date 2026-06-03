@@ -84,8 +84,8 @@ variance = abs(actual_weight - expected_weight) / expected_weight * 100
 - Backend: deploy Express API with `DATABASE_URL`, `JWT_SECRET`, and `AI_SERVICE_URL`.
 - Database: managed PostgreSQL with Prisma migrations.
 - Admin: build static Vite app and host on Vercel/Netlify/S3.
-- Mobile: use EAS Build for Android/iOS.
+- Mobile: use EAS Build and EAS Submit for Android/iOS store builds.
 - AI: deploy FastAPI service behind HTTPS.
 - IoT: ESP32/Raspberry Pi posts signed weight readings to `/api/iot/weight`.
 
-See [docs/ARCHITECTURE.md](/Users/balanikhil/Documents/Codex/2026-05-27/role-you-are-a-senior-full/docs/ARCHITECTURE.md) and [docs/DEPLOYMENT.md](/Users/balanikhil/Documents/Codex/2026-05-27/role-you-are-a-senior-full/docs/DEPLOYMENT.md).
+See [docs/ARCHITECTURE.md](/Users/balanikhil/Documents/Codex/2026-05-27/role-you-are-a-senior-full/docs/ARCHITECTURE.md), [docs/DEPLOYMENT.md](/Users/balanikhil/Documents/Codex/2026-05-27/role-you-are-a-senior-full/docs/DEPLOYMENT.md), and [docs/MOBILE_STORE_DEPLOYMENT.md](/Users/balanikhil/Documents/Codex/2026-05-27/role-you-are-a-senior-full/docs/MOBILE_STORE_DEPLOYMENT.md).

@@ -86,15 +86,18 @@ Environment: EXPO_PUBLIC_API_URL=https://your-backend-url/api
 
 For real Android/iOS app store builds, use Expo EAS:
 
-Use Expo EAS:
-
 ```bash
-npm --prefix mobile-app install
-npx eas build --platform android
-npx eas build --platform ios
+cd mobile-app
+npm ci
+npx eas-cli@latest login
+npx eas-cli@latest init
+npx eas-cli@latest build --platform android --profile production
+npx eas-cli@latest build --platform ios --profile production
 ```
 
 Set `EXPO_PUBLIC_API_URL=https://api.example.com/api`.
+
+For full Play Store and App Store steps, see [MOBILE_STORE_DEPLOYMENT.md](/Users/balanikhil/Documents/Codex/2026-05-27/role-you-are-a-senior-full/docs/MOBILE_STORE_DEPLOYMENT.md).
 
 ## AI Service
 

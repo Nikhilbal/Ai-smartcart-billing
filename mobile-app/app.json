@@ -4,26 +4,46 @@
     "slug": "smart-cart",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
     "scheme": "smartcart",
     "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F8FAFC"
+    },
     "assetBundlePatterns": [
       "**/*"
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.smartcart.billing"
+      "bundleIdentifier": "com.smartcart.billing",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Allow Smart Cart to scan product barcodes during shopping."
+      }
     },
     "android": {
       "package": "com.smartcart.billing",
+      "versionCode": 1,
       "permissions": [
-        "CAMERA"
-      ]
+        "android.permission.CAMERA"
+      ],
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#2563EB"
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
     },
     "plugins": [
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow Smart Cart to scan product barcodes."
+          "cameraPermission": "Allow Smart Cart to scan product barcodes.",
+          "recordAudioAndroid": false,
+          "microphonePermission": false
         }
       ],
       "expo-font"

@@ -5,6 +5,18 @@
 .env
 .env.*
 !.env.example
+!**/.env.example
+!**/.env.production.example
+secrets/
+*.jks
+*.keystore
+*.p8
+*.p12
+*.cer
+*.mobileprovision
+google-play-service-account*.json
+service-account*.json
+AuthKey_*.p8
 
 # Dependencies
 node_modules/
