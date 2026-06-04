@@ -6,17 +6,18 @@ type Props = {
   title: string;
   subtitle?: string;
   open: boolean;
+  wide?: boolean;
   onClose: () => void;
   children: ReactNode;
 };
 
-export function DetailDrawer({ title, subtitle, open, onClose, children }: Props) {
+export function DetailDrawer({ title, subtitle, open, wide = false, onClose, children }: Props) {
   if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/30 backdrop-blur-sm">
       <button className="absolute inset-0 cursor-default" aria-label="Close detail drawer" onClick={onClose} />
-      <aside className="relative h-full w-full max-w-xl overflow-y-auto border-l border-border bg-white p-7 shadow-soft">
+      <aside className={wide ? "relative h-full w-full max-w-4xl overflow-y-auto border-l border-border bg-white p-7 shadow-soft" : "relative h-full w-full max-w-xl overflow-y-auto border-l border-border bg-white p-7 shadow-soft"}>
         <div className="mb-7 flex items-start justify-between gap-4">
           <div>
             <h2 className="text-2xl font-extrabold text-ink">{title}</h2>
