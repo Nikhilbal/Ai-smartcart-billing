@@ -27,6 +27,25 @@ type CashRequest = {
   verifiedBy?: string;
 };
 
+type PaymentApprovalRequest = {
+  token: string;
+  cartId: string;
+  customerName: string;
+  amount: number;
+  method: "UPI" | "CARD";
+  reference: string;
+  upiId?: string;
+  counterId: string;
+  counterName: string;
+  counterLocation: string;
+  staffId: string;
+  staffName: string;
+  status: "PENDING" | "APPROVED";
+  requestedAt: string;
+  approvedAt?: string;
+  approvedBy?: string;
+};
+
 const fallbackCashRequests: CashRequest[] = bills
   .filter((bill) => bill.method === "CASH")
   .map((bill) => ({
@@ -44,6 +63,25 @@ const fallbackCashRequests: CashRequest[] = bills
     notifiedAt: "2026-05-27T12:22:00.000Z",
     verifiedBy: bill.status === "PAID" ? "Priya Singh" : undefined
   }));
+
+const fallbackPaymentApprovals: PaymentApprovalRequest[] = [
+  {
+    token: "UPI202605275257225",
+    cartId: "CART5892",
+    customerName: "Raj Kumar",
+    amount: 94.5,
+    method: "UPI",
+    reference: "UPI202605275257225",
+    upiId: "raj123@okaxis",
+    counterId: "P1",
+    counterName: "Payment Desk 1",
+    counterLocation: "Exit billing desk",
+    staffId: "STF201",
+    staffName: "Priya Singh",
+    status: "PENDING",
+    requestedAt: "2026-05-27T12:47:00.000Z"
+  }
+];
 
 function cashTime(value: string) {
   const date = new Date(value);
@@ -313,9 +351,13 @@ export function BillingHistory({ filter = "all" }: { filter?: BillingFilter }) {
 
 export function CashCounterVerification() {
   const [requests, setRequests] = useState<CashRequest[]>(fallbackCashRequests);
+  const [paymentRequests, setPaymentRequests] = useState<PaymentApprovalRequest[]>(fallbackPaymentApprovals);
   const [selectedRequest, setSelectedRequest] = useState<CashRequest | null>(null);
+  const [selectedPayment, setSelectedPayment] = useState<PaymentApprovalRequest | null>(null);
   const [syncStatus, setSyncStatus] = useState("Listening for cash payment requests");
+  const [paymentSyncStatus, setPaymentSyncStatus] = useState("Listening for UPI/card payment approvals");
   const pendingCount = requests.filter((request) => request.status === "PENDING").length;
+  const pendingPaymentCount = paymentRequests.filter((request) => request.status === "PENDING").length;
 
   async function loadRequests() {
     try {
@@ -326,6 +368,18 @@ export function CashCounterVerification() {
     } catch {
       setRequests((current) => (current.length > 0 ? current : fallbackCashRequests));
       setSyncStatus("Backend not connected, using demo counter queue");
+    }
+  }
+
+  async function loadPaymentRequests() {
+    try {
+      const { data } = await api.get("/payment/approval/pending");
+      const remoteRequests = data.data as PaymentApprovalRequest[];
+      setPaymentRequests(remoteRequests.length > 0 ? remoteRequests : fallbackPaymentApprovals);
+      setPaymentSyncStatus(remoteRequests.length > 0 ? "Live payment approval queue connected" : "No live online payment yet, showing demo approval token");
+    } catch {
+      setPaymentRequests((current) => (current.length > 0 ? current : fallbackPaymentApprovals));
+      setPaymentSyncStatus("Backend not connected, using demo payment approval queue");
     }
   }
 
@@ -347,6 +401,24 @@ export function CashCounterVerification() {
     }
   }
 
+  async function approvePaymentRequest(request: PaymentApprovalRequest) {
+    const approved: PaymentApprovalRequest = {
+      ...request,
+      status: "APPROVED",
+      approvedAt: new Date().toISOString(),
+      approvedBy: request.staffName
+    };
+
+    try {
+      const { data } = await api.put(`/payment/approval/${request.token}/approve`, { approvedBy: request.staffName });
+      syncPaymentRequest(data.data as PaymentApprovalRequest);
+      setPaymentSyncStatus(`${request.staffName} approved ${request.method} payment ${request.reference}. Customer exit QR can unlock.`);
+    } catch {
+      syncPaymentRequest(approved);
+      setPaymentSyncStatus(`Payment approved locally for ${request.reference}. Start backend for live customer sync.`);
+    }
+  }
+
   function syncRequest(updated: CashRequest) {
     setRequests((current) => {
       const exists = current.some((request) => request.token === updated.token);
@@ -356,9 +428,22 @@ export function CashCounterVerification() {
     setSelectedRequest((current) => (current?.token === updated.token ? updated : current));
   }
 
+  function syncPaymentRequest(updated: PaymentApprovalRequest) {
+    setPaymentRequests((current) => {
+      const exists = current.some((request) => request.token === updated.token);
+      if (exists) return current.map((request) => (request.token === updated.token ? updated : request));
+      return [updated, ...current];
+    });
+    setSelectedPayment((current) => (current?.token === updated.token ? updated : current));
+  }
+
   useEffect(() => {
     loadRequests();
-    const timer = window.setInterval(loadRequests, 2500);
+    loadPaymentRequests();
+    const timer = window.setInterval(() => {
+      loadRequests();
+      loadPaymentRequests();
+    }, 2500);
     return () => window.clearInterval(timer);
   }, []);
 
@@ -373,6 +458,14 @@ export function CashCounterVerification() {
       syncRequest(request);
       setSyncStatus(`${request.token} verified by ${request.verifiedBy ?? request.staffName}`);
     });
+    socket.on("payment:approval-requested", (request: PaymentApprovalRequest) => {
+      syncPaymentRequest(request);
+      setPaymentSyncStatus(`New ${request.method} approval request ${request.reference} from ${request.customerName}`);
+    });
+    socket.on("payment:approval-approved", (request: PaymentApprovalRequest) => {
+      syncPaymentRequest(request);
+      setPaymentSyncStatus(`${request.reference} approved by ${request.approvedBy ?? request.staffName}`);
+    });
     return () => {
       socket.disconnect();
     };
@@ -384,10 +477,10 @@ export function CashCounterVerification() {
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div className="grid h-12 w-12 place-items-center rounded-2xl bg-yellow-50 text-warning"><Banknote /></div>
-            <Badge className="bg-yellow-50 text-warning">{pendingCount} pending</Badge>
+            <Badge className="bg-yellow-50 text-warning">{pendingPaymentCount + pendingCount} pending</Badge>
           </div>
-          <div className="mt-6 font-mono text-4xl font-black text-ink">{pendingCount}</div>
-          <div className="mt-1 text-sm font-extrabold text-gray-500">Cash approvals waiting</div>
+          <div className="mt-6 font-mono text-4xl font-black text-ink">{pendingPaymentCount + pendingCount}</div>
+          <div className="mt-1 text-sm font-extrabold text-gray-500">Payment approvals waiting</div>
         </Card>
         <Card className="p-6">
           <div className="flex items-center justify-between">
@@ -402,10 +495,62 @@ export function CashCounterVerification() {
             <div className="grid h-12 w-12 place-items-center rounded-2xl bg-blue-50 text-brand"><RefreshCw /></div>
             <Badge className="bg-blue-50 text-brand">auto refresh</Badge>
           </div>
-          <div className="mt-6 text-lg font-extrabold text-ink">{syncStatus}</div>
+          <div className="mt-6 text-lg font-extrabold text-ink">{pendingPaymentCount > 0 ? paymentSyncStatus : syncStatus}</div>
           <div className="mt-1 text-sm font-bold text-gray-500">Updates every 2.5 seconds</div>
         </Card>
       </div>
+
+      <Card className="overflow-hidden">
+        <div className="flex flex-col gap-4 p-7 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 className="flex items-center gap-3 text-2xl font-extrabold"><CreditCard className="text-brand" /> UPI/Card Payment Approval Queue</h2>
+            <p className="mt-2 text-sm font-bold text-gray-500">Approve only after payment proof/reference is confirmed by staff or payment desk.</p>
+          </div>
+          <Button className="bg-blue-50 text-brand" onClick={loadPaymentRequests}><RefreshCw size={16} /> Refresh</Button>
+        </div>
+        <table className="w-full min-w-[900px] text-left">
+          <thead className="bg-gray-50 text-sm font-extrabold text-gray-500">
+            <tr><th className="px-6 py-5">Reference</th><th className="px-6 py-5">Customer</th><th className="px-6 py-5">Method</th><th className="px-6 py-5">Desk / Staff</th><th className="px-6 py-5">Amount</th><th className="px-6 py-5">Status</th><th className="px-6 py-5">Action</th></tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {paymentRequests.map((request) => (
+              <tr key={request.token} onClick={() => setSelectedPayment(request)} className="cursor-pointer hover:bg-blue-50/50">
+                <td className="px-6 py-5">
+                  <div className="font-mono text-lg font-black">{request.reference}</div>
+                  <div className="mt-1 flex items-center gap-1 text-xs font-bold text-gray-400"><Clock3 size={13} /> requested {cashTime(request.requestedAt)}</div>
+                </td>
+                <td className="px-6 py-5 font-bold">{request.customerName}</td>
+                <td className="px-6 py-5">
+                  <Badge className={request.method === "UPI" ? "bg-blue-50 text-brand" : "bg-purple-50 text-purple"}>{request.method}</Badge>
+                  {request.upiId ? <div className="mt-2 font-mono text-sm font-bold text-gray-500">{request.upiId}</div> : null}
+                </td>
+                <td className="px-6 py-5">
+                  <div className="font-extrabold">{request.counterName}</div>
+                  <div className="text-sm font-bold text-gray-500">{request.staffName} · {request.counterLocation}</div>
+                </td>
+                <td className="px-6 py-5 font-mono text-lg font-black text-brand">{inr(request.amount)}</td>
+                <td className="px-6 py-5">
+                  <Badge className={request.status === "APPROVED" ? "bg-emerald-50 text-success" : "bg-yellow-50 text-warning"}>
+                    {request.status === "APPROVED" ? "PAYMENT APPROVED" : "WAITING APPROVAL"}
+                  </Badge>
+                </td>
+                <td className="px-6 py-5">
+                  <Button
+                    disabled={request.status === "APPROVED"}
+                    className={request.status === "APPROVED" ? "bg-emerald-50 text-success" : "bg-success text-white"}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      approvePaymentRequest(request);
+                    }}
+                  >
+                    <CheckCircle2 size={16} /> {request.status === "APPROVED" ? "Approved" : "Approve Payment"}
+                  </Button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Card>
 
       <Card className="overflow-hidden">
         <div className="flex flex-col gap-4 p-7 md:flex-row md:items-center md:justify-between">
@@ -487,6 +632,43 @@ export function CashCounterVerification() {
             ) : (
               <div className="rounded-[20px] border border-emerald-200 bg-emerald-50 p-5 text-sm font-bold leading-6 text-emerald-800">
                 Cash has been verified. Receipt generation and exit QR are enabled for this customer.
+              </div>
+            )}
+          </div>
+        ) : null}
+      </DetailDrawer>
+      <DetailDrawer open={Boolean(selectedPayment)} onClose={() => setSelectedPayment(null)} title={selectedPayment?.reference ?? "Payment Approval"} subtitle={selectedPayment ? `${selectedPayment.customerName} · ${selectedPayment.method}` : undefined}>
+        {selectedPayment ? (
+          <div className="space-y-6">
+            <DetailGrid
+              rows={[
+                ["Reference", selectedPayment.reference],
+                ["Customer", selectedPayment.customerName],
+                ["Cart ID", selectedPayment.cartId],
+                ["Method", selectedPayment.method],
+                ["UPI ID", selectedPayment.upiId ?? "-"],
+                ["Amount", inr(selectedPayment.amount)],
+                ["Approval Desk", `${selectedPayment.counterName} · ${selectedPayment.counterLocation}`],
+                ["Staff", `${selectedPayment.staffName} (${selectedPayment.staffId})`],
+                ["Status", <Badge className={selectedPayment.status === "APPROVED" ? "bg-emerald-50 text-success" : "bg-yellow-50 text-warning"}>{selectedPayment.status}</Badge>],
+                ["Requested At", cashTime(selectedPayment.requestedAt)],
+                ["Approved By", selectedPayment.approvedBy ?? "Pending"],
+                ["Approved At", selectedPayment.approvedAt ? cashTime(selectedPayment.approvedAt) : "Pending"]
+              ]}
+            />
+            {selectedPayment.status === "PENDING" ? (
+              <div className="rounded-[20px] border border-yellow-200 bg-yellow-50 p-5">
+                <div className="text-lg font-extrabold text-amber-900">Admin payment approval step</div>
+                <p className="mt-2 text-sm font-bold leading-6 text-amber-800">
+                  Verify the {selectedPayment.method} payment reference, amount {inr(selectedPayment.amount)}, and customer token before approval. This is what unlocks receipt and exit QR in the customer app.
+                </p>
+                <Button className="mt-5 w-full bg-success py-3 text-white" onClick={() => approvePaymentRequest(selectedPayment)}>
+                  <CheckCircle2 size={18} /> Payment Verified, Approve Exit QR
+                </Button>
+              </div>
+            ) : (
+              <div className="rounded-[20px] border border-emerald-200 bg-emerald-50 p-5 text-sm font-bold leading-6 text-emerald-800">
+                Payment has been approved. Receipt generation and exit QR are enabled for this customer.
               </div>
             )}
           </div>

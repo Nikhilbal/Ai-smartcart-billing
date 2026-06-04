@@ -16,7 +16,7 @@ export function InventoryManagement({ onReorder }: { onReorder: (product: Produc
   const [editing, setEditing] = useState<Product | null>(null);
 
   const filtered = useMemo(
-    () => products.filter((product) => `${product.name} ${product.barcode} ${product.category}`.toLowerCase().includes(query.toLowerCase())),
+    () => products.filter((product) => `${product.name} ${product.barcode} ${product.sku ?? ""} ${product.category}`.toLowerCase().includes(query.toLowerCase())),
     [products, query]
   );
 
@@ -71,6 +71,7 @@ export function InventoryManagement({ onReorder }: { onReorder: (product: Produc
                       <div>
                         <div className="text-lg font-extrabold">{product.name}</div>
                         <div className="mt-1 font-mono text-sm text-gray-400">{product.barcode}</div>
+                        {product.sku ? <div className="mt-1 font-mono text-xs font-bold text-gray-400">SKU {product.sku}</div> : null}
                       </div>
                     </div>
                   </td>

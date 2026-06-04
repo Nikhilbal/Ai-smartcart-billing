@@ -9,7 +9,7 @@ const items = [
   { key: "reorders", label: "Reorders", icon: ClipboardCheck },
   { key: "fraud", label: "Fraud Detection", icon: Shield },
   { key: "carts", label: "Live Carts", icon: RadioTower },
-  { key: "counter", label: "Cash Counter", icon: Banknote, count: 1 },
+  { key: "counter", label: "Payment Approvals", icon: Banknote, count: 2 },
   { key: "sales", label: "Sales Analytics", icon: BarChart3 },
   { key: "customers", label: "Customers", icon: Users },
   { key: "billing", label: "Billing History", icon: CreditCard }

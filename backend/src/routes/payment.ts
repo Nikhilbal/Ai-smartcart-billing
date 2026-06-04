@@ -3,6 +3,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../config/prisma.js";
 import { markCartPaid } from "../services/cartService.js";
+import { approvePaymentApproval, getPaymentApproval, listPaymentApprovals, upsertPaymentApproval } from "../services/paymentApprovalService.js";
 import { emitAdmin, emitCart } from "../services/realtime.js";
 import { asyncHandler, HttpError, ok } from "../utils/http.js";
 
@@ -41,7 +42,9 @@ router.post(
   "/upi",
   asyncHandler(async (req, res) => {
     const body = z.object({ cartId: z.string(), upiId: z.string().min(3) }).parse(req.body);
-    ok(res, await createPayment(body.cartId, PaymentMethod.UPI, PaymentStatus.PAID, { upiId: body.upiId, simulated: true }), 201);
+    const payment = await createPayment(body.cartId, PaymentMethod.UPI, PaymentStatus.PENDING, { upiId: body.upiId, simulated: true, requiresAdminApproval: true });
+    emitAdmin("payment:approval-requested", payment);
+    ok(res, payment, 201);
   })
 );
 
@@ -55,7 +58,58 @@ router.post(
         network: z.string().default("Rupay")
       })
       .parse(req.body);
-    ok(res, await createPayment(body.cartId, PaymentMethod.CARD, PaymentStatus.PAID, { last4: body.last4, network: body.network, simulated: true }), 201);
+    const payment = await createPayment(body.cartId, PaymentMethod.CARD, PaymentStatus.PENDING, { last4: body.last4, network: body.network, simulated: true, requiresAdminApproval: true });
+    emitAdmin("payment:approval-requested", payment);
+    ok(res, payment, 201);
+  })
+);
+
+router.post(
+  "/approval/request",
+  asyncHandler(async (req, res) => {
+    const body = z
+      .object({
+        token: z.string().min(3),
+        cartId: z.string().default("demo-cart"),
+        customerName: z.string().default("Smart Cart Customer"),
+        amount: z.number().positive(),
+        method: z.enum(["UPI", "CARD"]),
+        reference: z.string().optional(),
+        upiId: z.string().optional()
+      })
+      .parse(req.body);
+
+    const request = upsertPaymentApproval(body);
+    emitAdmin("payment:approval-requested", request);
+    ok(res, request, 201);
+  })
+);
+
+router.get(
+  "/approval/pending",
+  asyncHandler(async (_req, res) => {
+    ok(res, listPaymentApprovals());
+  })
+);
+
+router.get(
+  "/approval/:token",
+  asyncHandler(async (req, res) => {
+    const request = getPaymentApproval(req.params.token);
+    if (!request) throw new HttpError(404, "Payment approval request not found");
+    ok(res, request);
+  })
+);
+
+router.put(
+  "/approval/:token/approve",
+  asyncHandler(async (req, res) => {
+    const body = z.object({ approvedBy: z.string().default("admin") }).parse(req.body);
+    const request = approvePaymentApproval(req.params.token, body.approvedBy);
+    if (!request) throw new HttpError(404, "Payment approval request not found");
+    emitAdmin("payment:approval-approved", request);
+    emitCart(request.cartId, "payment:approval-approved", request);
+    ok(res, request);
   })
 );
 
@@ -95,6 +149,37 @@ router.put(
     await markCartPaid(payment.cartId);
     emitCart(payment.cartId, "payment:cash-confirmed", updated);
     emitAdmin("payment:cash-confirmed", updated);
+    ok(res, updated);
+  })
+);
+
+router.put(
+  "/:paymentId/approve",
+  asyncHandler(async (req, res) => {
+    const body = z.object({ approvedBy: z.string().default("admin") }).parse(req.body);
+    const payment = await prisma.payment.findUnique({
+      where: { id: req.params.paymentId },
+      include: { cart: true }
+    });
+    if (!payment) throw new HttpError(404, "Payment not found");
+    if (payment.status === PaymentStatus.PAID) return ok(res, payment);
+    if (payment.status === PaymentStatus.FAILED) throw new HttpError(409, "Failed payments cannot be approved");
+
+    const updated = await prisma.payment.update({
+      where: { id: payment.id },
+      data: {
+        status: PaymentStatus.PAID,
+        gatewayResponse: {
+          ...(typeof payment.gatewayResponse === "object" && payment.gatewayResponse !== null && !Array.isArray(payment.gatewayResponse) ? payment.gatewayResponse : {}),
+          approvedBy: body.approvedBy,
+          approvedAt: new Date().toISOString()
+        }
+      }
+    });
+
+    await markCartPaid(payment.cartId);
+    emitCart(payment.cartId, "payment:approved", updated);
+    emitAdmin("payment:approved", updated);
     ok(res, updated);
   })
 );

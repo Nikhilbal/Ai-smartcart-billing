@@ -17,7 +17,7 @@ export type CartOffer = {
 type Payment = {
   method: "UPI" | "CARD" | "CASH";
   reference: string;
-  status: "CONFIRMED" | "PENDING_COUNTER";
+  status: "CONFIRMED" | "PENDING_COUNTER" | "PENDING_ADMIN";
 };
 
 type CartState = {
@@ -32,6 +32,7 @@ type CartState = {
   clear: () => void;
   verifyWeight: (actualWeight: number) => boolean;
   pay: (method: Payment["method"]) => void;
+  approvePayment: () => void;
   confirmCashPayment: () => void;
 };
 
@@ -76,9 +77,14 @@ export const useCartStore = create<CartState>((set, get) => ({
       payment: {
         method,
         reference: method === "CASH" ? "CASH5892" : `${method}${Date.now()}`.slice(0, 18),
-        status: method === "CASH" ? "PENDING_COUNTER" : "CONFIRMED"
+        status: method === "CASH" ? "PENDING_COUNTER" : "PENDING_ADMIN"
       },
-      items: method === "CASH" ? state.items : state.items.map((item) => ({ ...item, status: "BILLED" as const }))
+      items: state.items
+    })),
+  approvePayment: () =>
+    set((state) => ({
+      payment: state.payment ? { ...state.payment, status: "CONFIRMED" } : state.payment,
+      items: state.items.map((item) => ({ ...item, status: "BILLED" as const }))
     })),
   confirmCashPayment: () =>
     set((state) => ({

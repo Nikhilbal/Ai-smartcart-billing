@@ -12,7 +12,10 @@ const productImages = {
   butter: "https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?auto=format&fit=crop&w=800&q=80",
   tea: "https://images.unsplash.com/photo-1564890369478-c89ca6d9cde9?auto=format&fit=crop&w=800&q=80",
   honey: "https://images.unsplash.com/photo-1587049352846-4a222e784d38?auto=format&fit=crop&w=800&q=80",
-  biscuits: "https://images.unsplash.com/photo-1558961363-fa8fdf82db35?auto=format&fit=crop&w=800&q=80"
+  biscuits: "https://images.unsplash.com/photo-1558961363-fa8fdf82db35?auto=format&fit=crop&w=800&q=80",
+  curd: "https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&fit=crop&w=800&q=80",
+  sauce: "https://images.unsplash.com/photo-1607013251379-e6eecfffe234?auto=format&fit=crop&w=800&q=80",
+  stationery: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=800&q=80"
 };
 
 async function main() {
@@ -59,7 +62,10 @@ async function main() {
       ["Oils", "🛢️"],
       ["Beverages", "🍵"],
       ["Foods", "🍯"],
-      ["Biscuits", "🍪"]
+      ["Biscuits", "🍪"],
+      ["Sauces & Spreads", "🥫"],
+      ["Biscuits & Cookies", "🍪"],
+      ["Office & Stationery", "📎"]
     ].map(([name, emoji]) =>
       prisma.category.upsert({
         where: { name },
@@ -83,6 +89,54 @@ async function main() {
       supplier: "Patanjali Foods",
       stock: 90,
       description: "35g Patanjali Doodh Milk Biscuits pack for scan-and-shop checkout."
+    },
+    {
+      name: "Priya Premium Curd 1kg",
+      barcode: "8906077890012",
+      category: "Dairy",
+      price: 80,
+      mrp: 80,
+      weightKg: 1,
+      imageUrl: productImages.curd,
+      supplier: "Priya Dairy",
+      stock: 80,
+      description: "Fresh and creamy Priya curd, 1kg pack. SKU: PRIYA-CURD-1KG."
+    },
+    {
+      name: "Xinng Continental Sauce 500g",
+      barcode: "8906123456789",
+      category: "Sauces & Spreads",
+      price: 65,
+      mrp: 65,
+      weightKg: 0.5,
+      imageUrl: productImages.sauce,
+      supplier: "Xinng Foods",
+      stock: 75,
+      description: "Tangy and spicy continental sauce, 500g bottle. SKU: XINNG-CONT-SAUCE-500G."
+    },
+    {
+      name: "Britannia Marie Gold Biscuit 120g",
+      barcode: "8901063061302",
+      category: "Biscuits & Cookies",
+      price: 15,
+      mrp: 15,
+      weightKg: 0.12,
+      imageUrl: productImages.biscuits,
+      supplier: "Britannia Industries",
+      stock: 120,
+      description: "Crispy and light tea-time biscuit, 120g pack. SKU: BRIT-MARIEGOLD-120G."
+    },
+    {
+      name: "Fevicol MR General Purpose 100ml",
+      barcode: "8901030720015",
+      category: "Office & Stationery",
+      price: 45,
+      mrp: 45,
+      weightKg: 0.1,
+      imageUrl: productImages.stationery,
+      supplier: "Pidilite Industries",
+      stock: 65,
+      description: "Multi-purpose adhesive for school, office, and craft use. SKU: FEVICOL-MR-100ML."
     },
     {
       name: "Brown Bread",

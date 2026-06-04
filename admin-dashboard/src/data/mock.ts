@@ -9,6 +9,7 @@ export type Product = {
   status: "OK" | "LOW" | "CRITICAL";
   supplier: string;
   image: string;
+  sku?: string;
 };
 
 export const productImages = {
@@ -20,11 +21,18 @@ export const productImages = {
   butter: "https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?auto=format&fit=crop&w=500&q=80",
   tea: "https://images.unsplash.com/photo-1564890369478-c89ca6d9cde9?auto=format&fit=crop&w=500&q=80",
   honey: "https://images.unsplash.com/photo-1587049352846-4a222e784d38?auto=format&fit=crop&w=500&q=80",
-  biscuits: "https://images.unsplash.com/photo-1558961363-fa8fdf82db35?auto=format&fit=crop&w=500&q=80"
+  biscuits: "https://images.unsplash.com/photo-1558961363-fa8fdf82db35?auto=format&fit=crop&w=500&q=80",
+  curd: "https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&fit=crop&w=500&q=80",
+  sauce: "https://images.unsplash.com/photo-1607013251379-e6eecfffe234?auto=format&fit=crop&w=500&q=80",
+  stationery: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=500&q=80"
 };
 
 export const products: Product[] = [
   { id: "p9", name: "PATANJALI DOODH MILK BISCUITS", barcode: "8906032018513", category: "Biscuits", price: 5, stock: 90, min: 50, status: "OK", supplier: "Patanjali Foods", image: productImages.biscuits },
+  { id: "p10", name: "Priya Premium Curd 1kg", barcode: "8906077890012", category: "Dairy", price: 80, stock: 80, min: 50, status: "OK", supplier: "Priya Dairy", image: productImages.curd, sku: "PRIYA-CURD-1KG" },
+  { id: "p11", name: "Xinng Continental Sauce 500g", barcode: "8906123456789", category: "Sauces & Spreads", price: 65, stock: 75, min: 50, status: "OK", supplier: "Xinng Foods", image: productImages.sauce, sku: "XINNG-CONT-SAUCE-500G" },
+  { id: "p12", name: "Britannia Marie Gold Biscuit 120g", barcode: "8901063061302", category: "Biscuits & Cookies", price: 15, stock: 120, min: 50, status: "OK", supplier: "Britannia Industries", image: productImages.biscuits, sku: "BRIT-MARIEGOLD-120G" },
+  { id: "p13", name: "Fevicol MR General Purpose 100ml", barcode: "8901030720015", category: "Office & Stationery", price: 45, stock: 65, min: 50, status: "OK", supplier: "Pidilite Industries", image: productImages.stationery, sku: "FEVICOL-MR-100ML" },
   { id: "p1", name: "Brown Bread", barcode: "8901030890617", category: "Bakery", price: 45, stock: 156, min: 50, status: "OK", supplier: "Mumbai Bakers", image: productImages.bread },
   { id: "p2", name: "Milk (Amul 500ml)", barcode: "8901063150853", category: "Dairy", price: 55, stock: 38, min: 50, status: "LOW", supplier: "Amul Dairy", image: productImages.milk },
   { id: "p3", name: "Eggs (10-pack)", barcode: "8901030890618", category: "Dairy", price: 65, stock: 12, min: 50, status: "CRITICAL", supplier: "Happy Farms", image: productImages.eggs },

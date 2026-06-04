@@ -7,7 +7,7 @@ const titles: Record<PageKey, string> = {
   reorders: "Reorder Management",
   fraud: "Fraud Detection",
   carts: "Real-time Cart Monitoring",
-  counter: "Cash Counter Verification",
+  counter: "Payment Approval Desk",
   sales: "Sales Analytics",
   customers: "Customer Management",
   billing: "Billing History"

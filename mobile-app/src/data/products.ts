@@ -10,6 +10,7 @@ export type Product = {
   image: string;
   description: string;
   supplier: string;
+  sku?: string;
 };
 
 export const products: Product[] = [
@@ -25,6 +26,62 @@ export const products: Product[] = [
     image: "https://images.unsplash.com/photo-1558961363-fa8fdf82db35?auto=format&fit=crop&w=800&q=80",
     description: "35g Patanjali Doodh Milk Biscuits pack for quick scan-and-shop checkout.",
     supplier: "Patanjali Foods"
+  },
+  {
+    id: "p10",
+    name: "Priya Premium Curd 1kg",
+    category: "Dairy",
+    barcode: "8906077890012",
+    price: 80,
+    mrp: 80,
+    weightKg: 1,
+    stock: 80,
+    image: "https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&fit=crop&w=800&q=80",
+    description: "Fresh and creamy Priya curd, 1kg pack.",
+    supplier: "Priya Dairy",
+    sku: "PRIYA-CURD-1KG"
+  },
+  {
+    id: "p11",
+    name: "Xinng Continental Sauce 500g",
+    category: "Sauces & Spreads",
+    barcode: "8906123456789",
+    price: 65,
+    mrp: 65,
+    weightKg: 0.5,
+    stock: 75,
+    image: "https://images.unsplash.com/photo-1607013251379-e6eecfffe234?auto=format&fit=crop&w=800&q=80",
+    description: "Tangy and spicy continental sauce, 500g bottle.",
+    supplier: "Xinng Foods",
+    sku: "XINNG-CONT-SAUCE-500G"
+  },
+  {
+    id: "p12",
+    name: "Britannia Marie Gold Biscuit 120g",
+    category: "Biscuits & Cookies",
+    barcode: "8901063061302",
+    price: 15,
+    mrp: 15,
+    weightKg: 0.12,
+    stock: 120,
+    image: "https://images.unsplash.com/photo-1558961363-fa8fdf82db35?auto=format&fit=crop&w=800&q=80",
+    description: "Crispy and light tea-time biscuit, 120g pack.",
+    supplier: "Britannia Industries",
+    sku: "BRIT-MARIEGOLD-120G"
+  },
+  {
+    id: "p13",
+    name: "Fevicol MR General Purpose 100ml",
+    category: "Office & Stationery",
+    barcode: "8901030720015",
+    price: 45,
+    mrp: 45,
+    weightKg: 0.1,
+    stock: 65,
+    image: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=800&q=80",
+    description: "Multi-purpose adhesive for school, office, and craft use.",
+    supplier: "Pidilite Industries",
+    sku: "FEVICOL-MR-100ML"
   },
   {
     id: "p1",
@@ -132,7 +189,7 @@ export const products: Product[] = [
   }
 ];
 
-export const categories = ["All", "Biscuits", "Dairy", "Bakery", "Grains", "Oils", "Beverages", "Foods"];
+export const categories = ["All", "Biscuits", "Dairy", "Sauces & Spreads", "Biscuits & Cookies", "Office & Stationery", "Bakery", "Grains", "Oils", "Beverages", "Foods"];
 
 export const onboarding = [
   {

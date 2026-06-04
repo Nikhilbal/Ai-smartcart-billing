@@ -24,6 +24,47 @@ type CashCounterRequest = {
   verifiedBy?: string;
 };
 
+type PaymentApprovalRequest = {
+  token: string;
+  cartId: string;
+  customerName: string;
+  amount: number;
+  method: "UPI" | "CARD";
+  reference: string;
+  upiId?: string;
+  counterName: string;
+  counterLocation: string;
+  staffName: string;
+  status: "PENDING" | "APPROVED";
+  requestedAt: string;
+  approvedAt?: string;
+  approvedBy?: string;
+};
+
+async function notifyAdminPaymentApproval({
+  method,
+  reference,
+  total,
+  customerName,
+  upiId
+}: {
+  method: "UPI" | "CARD";
+  reference: string;
+  total: number;
+  customerName: string;
+  upiId?: string;
+}) {
+  await api.post("/payment/approval/request", {
+    token: reference,
+    cartId: "CART5911",
+    customerName,
+    amount: total,
+    method,
+    reference,
+    upiId
+  });
+}
+
 function IconButton({ name, tone = "#F3F4F6" }: { name: keyof typeof Ionicons.glyphMap; tone?: string }) {
   return <View style={[styles.iconButton, { backgroundColor: tone }]}><Ionicons name={name} size={25} color={colors.text} /></View>;
 }
@@ -153,9 +194,29 @@ export function UpiPaymentScreen({ navigation }: any) {
   const [upi, setUpi] = useState("raj123@okaxis");
   const [showQr, setShowQr] = useState(false);
   const items = useCartStore((state) => state.items);
+  const customer = useCustomerStore((state) => state.customer);
   const total = getTotal(items);
   const pay = useCartStore((state) => state.pay);
   const upiPayload = `upi://pay?pa=${encodeURIComponent(upi)}&pn=${encodeURIComponent("Smart Supermarket")}&am=${total.toFixed(2)}&cu=INR&tn=${encodeURIComponent(`Smart Cart bill ${receiptId}`)}`;
+
+  async function submitUpiPayment() {
+    pay("UPI");
+    const payment = useCartStore.getState().payment;
+    if (payment) {
+      try {
+        await notifyAdminPaymentApproval({
+          method: "UPI",
+          reference: payment.reference,
+          total,
+          customerName: customer?.name ?? "Smart Cart Customer",
+          upiId: upi
+        });
+      } catch {
+        // The pending state remains locked; customer can retry status check when backend/admin is online.
+      }
+    }
+    navigation.replace("PaymentSuccess");
+  }
 
   return (
     <Screen>
@@ -187,7 +248,7 @@ export function UpiPaymentScreen({ navigation }: any) {
           </Pressable>
         )}
         <View style={{ height: 24 }} />
-        <PrimaryButton title={`I Paid ₹${total.toFixed(2)}`} onPress={() => { pay("UPI"); navigation.replace("PaymentSuccess"); }} icon="checkmark" />
+        <PrimaryButton title={`I Paid ₹${total.toFixed(2)}`} onPress={submitUpiPayment} icon="checkmark" />
         <View style={{ height: 26 }} />
       </ScrollView>
     </Screen>
@@ -196,8 +257,30 @@ export function UpiPaymentScreen({ navigation }: any) {
 
 export function CardPaymentScreen({ navigation }: any) {
   const [card, setCard] = useState("4111 1111 1111 1234");
+  const items = useCartStore((state) => state.items);
+  const customer = useCustomerStore((state) => state.customer);
   const pay = useCartStore((state) => state.pay);
-  return <PaymentForm title="Card Payment" input={card} setInput={setCard} placeholder="Card number" icon="card-outline" onPay={() => { pay("CARD"); navigation.replace("PaymentSuccess"); }} />;
+  const total = getTotal(items);
+
+  async function submitCardPayment() {
+    pay("CARD");
+    const payment = useCartStore.getState().payment;
+    if (payment) {
+      try {
+        await notifyAdminPaymentApproval({
+          method: "CARD",
+          reference: payment.reference,
+          total,
+          customerName: customer?.name ?? "Smart Cart Customer"
+        });
+      } catch {
+        // The payment stays locked until admin approval can be checked.
+      }
+    }
+    navigation.replace("PaymentSuccess");
+  }
+
+  return <PaymentForm title="Card Payment" input={card} setInput={setCard} placeholder="Card number" icon="card-outline" onPay={submitCardPayment} />;
 }
 
 export function CashPaymentScreen({ navigation }: any) {
@@ -345,7 +428,83 @@ function PaymentForm({ title, input, setInput, placeholder, icon, onPay }: { tit
 export function PaymentSuccessScreen({ navigation }: any) {
   const items = useCartStore((state) => state.items);
   const payment = useCartStore((state) => state.payment);
+  const approvePayment = useCartStore((state) => state.approvePayment);
   const total = getTotal(items);
+  const [approvalRequest, setApprovalRequest] = useState<PaymentApprovalRequest | null>(null);
+  const [approvalMessage, setApprovalMessage] = useState("Waiting for admin to confirm this payment in the approval queue.");
+  const [lastCheckedAt, setLastCheckedAt] = useState("");
+  const needsAdminApproval = payment?.status === "PENDING_ADMIN";
+
+  async function checkAdminApproval(showAlert = false) {
+    if (!payment?.reference || !needsAdminApproval) return;
+    const checkedAt = new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    setLastCheckedAt(checkedAt);
+    try {
+      const { data } = await api.get(`/payment/approval/${payment.reference}`);
+      const request = data.data as PaymentApprovalRequest;
+      setApprovalRequest(request);
+
+      if (request.status === "APPROVED") {
+        approvePayment();
+        setApprovalMessage(`Approved by ${request.approvedBy ?? request.staffName}. Receipt and exit QR are unlocked.`);
+        if (showAlert) Alert.alert("Payment approved", `Approved by: ${request.approvedBy ?? request.staffName}\nExit QR: ENABLED`);
+        return;
+      }
+
+      setApprovalMessage(`${request.staffName} has not approved ${request.method} payment yet.`);
+      if (showAlert) {
+        Alert.alert(
+          "Payment approval pending",
+          `Status: PENDING\nReference: ${request.reference}\nDesk: ${request.counterName}\nStaff: ${request.staffName}\nAmount: ₹${total.toFixed(2)}\nExit QR: LOCKED\nLast checked: ${checkedAt}`
+        );
+      }
+    } catch {
+      setApprovalMessage("Admin approval queue is offline. Keep this screen open and ask staff to open Admin > Payment Approvals.");
+      if (showAlert) Alert.alert("Approval status unavailable", `Status: NOT FOUND / OFFLINE\nReference: ${payment.reference}\nExit QR: LOCKED\nLast checked: ${checkedAt}`);
+    }
+  }
+
+  useEffect(() => {
+    if (!needsAdminApproval) return;
+    checkAdminApproval();
+    const timer = setInterval(() => checkAdminApproval(), 2500);
+    return () => clearInterval(timer);
+  }, [needsAdminApproval, payment?.reference]);
+
+  if (needsAdminApproval) {
+    return (
+      <Screen>
+        <Header title="Payment Approval" subtitle={`Total: ₹${total.toFixed(2)}`} right={<IconButton name="shield-checkmark-outline" />} />
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <View style={styles.successCenter}>
+            <Ionicons name="time-outline" size={126} color={colors.warning} />
+            <Text style={[styles.successTitle, { color: "#92400E" }]}>Waiting for Admin Approval</Text>
+            <Text style={styles.formSub}>Your exit QR will be generated only after staff confirms this payment.</Text>
+          </View>
+          <Card style={[styles.paymentResult, { backgroundColor: "#FFFBEB", borderColor: "#FCD34D" }]}>
+            <ResultRow label="Amount" value={`₹${total.toFixed(2)}`} />
+            <ResultRow label="Method" value={payment?.method ?? "UPI"} />
+            <ResultRow label="Reference" value={payment?.reference ?? "PENDING"} />
+            <ResultRow label="Approval Desk" value={approvalRequest ? `${approvalRequest.counterName}` : "ADMIN QUEUE"} />
+            <ResultRow label="Admin Status" value="WAITING" />
+            <ResultRow label="Last Checked" value={lastCheckedAt || "AUTO CHECKING"} />
+            <ResultRow label="Exit QR" value="LOCKED" />
+          </Card>
+          <View style={styles.cashAlertBox}>
+            <Ionicons name="lock-closed-outline" size={24} color={colors.warning} />
+            <Text style={styles.cashAlertText}>{approvalMessage}</Text>
+          </View>
+          <Card style={styles.qrPreview}>
+            <Text style={styles.paymentTitle}>Exit QR Locked</Text>
+            <View style={styles.qrPlaceholder}><Ionicons name="lock-closed-outline" size={42} color="#9CA3AF" /></View>
+            <Text style={styles.formSub}>Admin approval is required before receipt and exit QR are created.</Text>
+          </Card>
+        </ScrollView>
+        <View style={styles.stickyFooter}><PrimaryButton title="Check admin approval status" color={colors.warning} icon="refresh-outline" onPress={() => checkAdminApproval(true)} /></View>
+      </Screen>
+    );
+  }
+
   return (
     <Screen>
       <Header title="Payment Successful!" subtitle={`Total: ₹${total.toFixed(2)}`} />
@@ -355,7 +514,7 @@ export function PaymentSuccessScreen({ navigation }: any) {
           <ResultRow label="Amount Paid" value={`₹${total.toFixed(2)}`} />
           <ResultRow label="Method" value={payment?.method ?? "UPI"} />
           <ResultRow label="Reference" value={payment?.reference ?? "UPI2026052587477"} />
-          <ResultRow label="Status" value={payment?.status === "PENDING_COUNTER" ? "COUNTER CONFIRMED" : "CONFIRMED"} />
+          <ResultRow label="Status" value="ADMIN CONFIRMED" />
         </Card>
         <Card style={styles.qrPreview}><Text style={styles.paymentTitle}>Scan QR to Exit Store</Text><View style={styles.qrPlaceholder}><Text style={{ color: "#9CA3AF", fontWeight: "800", textAlign: "center" }}>QR Code{"\n"}{receiptId}</Text></View></Card>
       </ScrollView>
@@ -373,9 +532,20 @@ export function ReceiptScreen({ navigation }: any) {
   const offers = getCartOffers(items);
   const discount = getDiscountTotal(items);
   const total = getTotal(items);
+  const paymentApproved = payment?.status === "CONFIRMED";
+
+  function openExitQr() {
+    if (!paymentApproved) {
+      Alert.alert("Exit QR locked", "Admin payment approval is required before exit QR can be generated.");
+      navigation.navigate("PaymentSuccess");
+      return;
+    }
+    navigation.navigate("ExitQR");
+  }
+
   return (
     <Screen padded={false}>
-      <View style={{ paddingHorizontal: 22 }}><Header title="Bill Receipt" right={<Text style={styles.paidPill}>✓ PAID</Text>} /></View>
+      <View style={{ paddingHorizontal: 22 }}><Header title="Bill Receipt" right={<Text style={paymentApproved ? styles.paidPill : styles.lockedPill}>{paymentApproved ? "✓ PAID" : "LOCKED"}</Text>} /></View>
       <ScrollView contentContainerStyle={{ paddingBottom: 190 }} showsVerticalScrollIndicator={false}>
         <View style={styles.receipt}>
           <LinearGradient colors={[colors.primary, "#2F49D8"]} style={styles.receiptHead}>
@@ -399,7 +569,7 @@ export function ReceiptScreen({ navigation }: any) {
             <Text style={styles.receiptSection}>PAYMENT</Text>
             <ResultRow label="Method" value={payment?.method ?? "UPI"} />
             <ResultRow label="Reference" value={payment?.reference ?? "UPI202605275257225"} />
-            <ResultRow label="Status" value="PAID SUCCESSFULLY" />
+            <ResultRow label="Status" value={paymentApproved ? "PAID SUCCESSFULLY" : "WAITING ADMIN APPROVAL"} />
             <Text style={styles.receiptSection}>WEIGHT VERIFICATION</Text>
             <ResultRow label="Expected" value={`${expected.toFixed(2)} kg`} />
             <ResultRow label="Actual" value={`${actual.toFixed(2)} kg`} />
@@ -414,7 +584,7 @@ export function ReceiptScreen({ navigation }: any) {
       </ScrollView>
       <View style={styles.receiptFooter}>
         <View style={styles.receiptActions}>{[["mail-outline", "Email", colors.primary], ["print-outline", "Print", colors.text], ["share-social-outline", "Share", colors.purple]].map(([icon, label, color]) => <Pressable key={label} style={styles.receiptAction}><Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={30} color={color as string} /><Text style={[styles.receiptActionText, { color: color as string }]}>{label}</Text></Pressable>)}</View>
-        <PrimaryButton title="Exit Store" color={colors.success} icon="exit-outline" onPress={() => navigation.navigate("ExitQR")} />
+        <PrimaryButton title={paymentApproved ? "Exit Store" : "Exit QR Locked"} color={paymentApproved ? colors.success : colors.muted} icon={paymentApproved ? "exit-outline" : "lock-closed-outline"} onPress={openExitQr} />
       </View>
     </Screen>
   );
@@ -422,7 +592,27 @@ export function ReceiptScreen({ navigation }: any) {
 
 export function ExitQRScreen({ navigation }: any) {
   const clear = useCartStore((state) => state.clear);
+  const payment = useCartStore((state) => state.payment);
   const payload = JSON.stringify({ billNo: receiptId, status: "PAID", weight: "VERIFIED", token: "EXIT-5892" });
+
+  if (payment?.status !== "CONFIRMED") {
+    return (
+      <Screen>
+        <ScrollView contentContainerStyle={styles.screenScroll} showsVerticalScrollIndicator={false}>
+          <Header title="Exit QR Locked" subtitle="Admin payment approval required" right={<IconButton name="lock-closed-outline" />} />
+          <Card style={styles.exitCard}>
+            <Ionicons name="lock-closed-outline" size={96} color={colors.warning} />
+            <Text style={styles.resultTitle}>Approval Pending</Text>
+            <Text style={styles.formSub}>The exit QR will be generated after admin approves the payment.</Text>
+          </Card>
+          <View style={{ height: 24 }} />
+          <PrimaryButton title="Check Payment Approval" color={colors.warning} icon="refresh-outline" onPress={() => navigation.replace("PaymentSuccess")} />
+          <View style={{ height: 26 }} />
+        </ScrollView>
+      </Screen>
+    );
+  }
+
   function finishExit() {
     clear();
     Alert.alert("Exit Verified", "Thank you for shopping at Smart Supermarket.");
@@ -503,6 +693,7 @@ const styles = StyleSheet.create({
   qrPlaceholder: { marginTop: 18, width: 150, height: 150, borderRadius: 28, backgroundColor: "#F3F4F6", alignItems: "center", justifyContent: "center" },
   stickyFooter: { position: "absolute", left: 0, right: 0, bottom: 0, padding: 22, backgroundColor: "rgba(248,250,252,0.96)" },
   paidPill: { overflow: "hidden", borderRadius: 999, backgroundColor: "#ECFDF5", color: "#047857", paddingHorizontal: 18, paddingVertical: 10, fontSize: 16, fontWeight: "900" },
+  lockedPill: { overflow: "hidden", borderRadius: 999, backgroundColor: "#FFFBEB", color: "#92400E", paddingHorizontal: 18, paddingVertical: 10, fontSize: 16, fontWeight: "900" },
   receipt: { marginHorizontal: 22, borderRadius: 28, overflow: "hidden", backgroundColor: "white", ...shadow },
   receiptHead: { padding: 32, alignItems: "center" },
   receiptStore: { marginTop: 12, color: "white", fontSize: 24, fontWeight: "900" },
