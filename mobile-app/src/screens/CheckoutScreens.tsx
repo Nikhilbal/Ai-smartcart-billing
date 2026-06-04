@@ -151,8 +151,47 @@ function PaymentOption({ icon, title, subtitle, badge, onPress }: { icon: keyof 
 
 export function UpiPaymentScreen({ navigation }: any) {
   const [upi, setUpi] = useState("raj123@okaxis");
+  const [showQr, setShowQr] = useState(false);
+  const items = useCartStore((state) => state.items);
+  const total = getTotal(items);
   const pay = useCartStore((state) => state.pay);
-  return <PaymentForm title="UPI Payment" input={upi} setInput={setUpi} placeholder="UPI ID" icon="phone-portrait-outline" onPay={() => { pay("UPI"); navigation.replace("PaymentSuccess"); }} />;
+  const upiPayload = `upi://pay?pa=${encodeURIComponent(upi)}&pn=${encodeURIComponent("Smart Supermarket")}&am=${total.toFixed(2)}&cu=INR&tn=${encodeURIComponent(`Smart Cart bill ${receiptId}`)}`;
+
+  return (
+    <Screen>
+      <ScrollView contentContainerStyle={styles.screenScroll} showsVerticalScrollIndicator={false}>
+        <Header title="UPI Payment" subtitle={`Pay ₹${total.toFixed(2)}`} right={<IconButton name="phone-portrait-outline" />} />
+        <Card style={{ padding: 24 }}>
+          <Text style={styles.label}>UPI ID</Text>
+          <Pressable style={styles.upiTapCard} onPress={() => setShowQr(true)}>
+            <View style={styles.upiTapIcon}><Ionicons name="qr-code-outline" size={28} color={colors.primary} /></View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.upiTapTitle}>{upi}</Text>
+              <Text style={styles.upiTapSub}>Tap UPI ID to show payment QR</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={24} color={colors.muted} />
+          </Pressable>
+          <TextInput value={upi} onChangeText={(value) => { setUpi(value); setShowQr(false); }} style={styles.upiInput} placeholder="UPI ID" />
+          <View style={styles.secureRow}><Text style={styles.secureMini}>✓ Instant</Text><Text style={styles.secureMini}>✓ Secure</Text><Text style={styles.secureMini}>✓ Verified Cart</Text></View>
+        </Card>
+        {showQr ? (
+          <Card style={styles.upiQrCard}>
+            <QRCode value={upiPayload} size={230} color={colors.text} backgroundColor="white" />
+            <Text style={styles.upiQrTitle}>Scan QR with any UPI app</Text>
+            <Text style={styles.upiQrSub}>Amount ₹{total.toFixed(2)} · {upi}</Text>
+          </Card>
+        ) : (
+          <Pressable style={styles.showQrButton} onPress={() => setShowQr(true)}>
+            <Ionicons name="qr-code-outline" size={24} color={colors.primary} />
+            <Text style={styles.showQrText}>Show UPI QR Code</Text>
+          </Pressable>
+        )}
+        <View style={{ height: 24 }} />
+        <PrimaryButton title={`I Paid ₹${total.toFixed(2)}`} onPress={() => { pay("UPI"); navigation.replace("PaymentSuccess"); }} icon="checkmark" />
+        <View style={{ height: 26 }} />
+      </ScrollView>
+    </Screen>
+  );
 }
 
 export function CardPaymentScreen({ navigation }: any) {
@@ -440,7 +479,16 @@ const styles = StyleSheet.create({
   paymentSub: { marginTop: 6, color: colors.muted, fontSize: 16, fontWeight: "800" },
   paymentBadge: { overflow: "hidden", borderRadius: 999, backgroundColor: colors.success, color: "white", paddingHorizontal: 14, paddingVertical: 8, fontWeight: "900" },
   label: { marginTop: 10, marginBottom: 12, color: "#374151", fontSize: 18, fontWeight: "900" },
+  upiTapCard: { minHeight: 74, borderWidth: 1, borderColor: "#BFDBFE", borderRadius: 22, backgroundColor: "#EFF6FF", padding: 14, flexDirection: "row", alignItems: "center", gap: 14, marginBottom: 14 },
+  upiTapIcon: { width: 48, height: 48, borderRadius: 16, backgroundColor: "white", alignItems: "center", justifyContent: "center" },
+  upiTapTitle: { color: colors.text, fontSize: 19, fontFamily: "Courier", fontWeight: "900" },
+  upiTapSub: { marginTop: 4, color: colors.primary, fontSize: 14, fontWeight: "800" },
   upiInput: { height: 64, borderWidth: 1, borderColor: colors.border, borderRadius: 20, paddingHorizontal: 18, fontSize: 20, fontWeight: "900", color: colors.text },
+  upiQrCard: { marginTop: 20, padding: 26, alignItems: "center" },
+  upiQrTitle: { marginTop: 18, color: colors.text, fontSize: 21, fontWeight: "900" },
+  upiQrSub: { marginTop: 8, color: colors.muted, fontSize: 16, fontWeight: "800" },
+  showQrButton: { marginTop: 18, minHeight: 62, borderRadius: 20, borderWidth: 1, borderColor: "#BFDBFE", backgroundColor: "#EFF6FF", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10 },
+  showQrText: { color: colors.primary, fontSize: 17, fontWeight: "900" },
   secureRow: { flexDirection: "row", flexWrap: "wrap", gap: 14, marginTop: 20 },
   secureMini: { color: colors.success, fontSize: 16, fontWeight: "900" },
   formSub: { marginTop: 8, color: colors.muted, fontSize: 16, lineHeight: 24, fontWeight: "700" },

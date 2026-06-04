@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions, type BarcodeType } from "expo-camera";
-import { useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Image, Keyboard, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { createElement, useEffect, useMemo, useRef, useState } from "react";
+import { ActivityIndicator, Alert, Image, Keyboard, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { ProductCard } from "../components/ProductCard";
 import { Card, Header, Money, PrimaryButton, Screen } from "../components/Ui";
 import { categories, products, type Product } from "../data/products";
@@ -95,13 +95,19 @@ export function ScannerScreen({ navigation }: any) {
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const [requestingPermission, setRequestingPermission] = useState(false);
+  const [webCameraState, setWebCameraState] = useState<"idle" | "starting" | "ready" | "blocked" | "unsupported">("idle");
+  const [webCameraMessage, setWebCameraMessage] = useState("");
   const [manualBarcode, setManualBarcode] = useState("");
   const manualBarcodeRef = useRef("");
+  const webVideoRef = useRef<any>(null);
+  const webStreamRef = useRef<any>(null);
   const submittingBarcodeRef = useRef(false);
   const [submittingBarcode, setSubmittingBarcode] = useState(false);
   const [scanResult, setScanResult] = useState<{ type: "success" | "error"; title: string; message: string; product?: Product } | null>(null);
   const add = useCartStore((state) => state.add);
-  const cameraReady = permission?.granted;
+  const isWeb = Platform.OS === "web";
+  const cameraReady = isWeb ? webCameraState === "ready" : permission?.granted;
+  const cameraLoading = requestingPermission || webCameraState === "starting";
 
   function normalizeBarcode(data: string) {
     return String(data).replace(/\D/g, "");
@@ -114,7 +120,53 @@ export function ScannerScreen({ navigation }: any) {
     if (scanResult?.type === "error") setScanResult(null);
   }
 
+  function stopWebCamera() {
+    const tracks = webStreamRef.current?.getTracks?.() ?? [];
+    tracks.forEach((track: any) => track.stop?.());
+    webStreamRef.current = null;
+  }
+
+  async function startWebCamera() {
+    const mediaDevices = (globalThis as any).navigator?.mediaDevices;
+    if (!mediaDevices?.getUserMedia) {
+      setWebCameraState("unsupported");
+      setWebCameraMessage("This browser cannot open camera preview. Use the mobile app or enter barcode manually.");
+      return;
+    }
+
+    setWebCameraState("starting");
+    setWebCameraMessage("Waiting for browser camera permission...");
+    try {
+      stopWebCamera();
+      const stream = await mediaDevices.getUserMedia({
+        audio: false,
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        }
+      });
+      webStreamRef.current = stream;
+      setWebCameraState("ready");
+      setWebCameraMessage("Camera preview is active. Keep barcode inside the green frame.");
+      setTimeout(() => {
+        if (webVideoRef.current) {
+          webVideoRef.current.srcObject = stream;
+          webVideoRef.current.play?.().catch(() => undefined);
+        }
+      }, 0);
+    } catch {
+      setWebCameraState("blocked");
+      setWebCameraMessage("Camera permission was blocked. Allow camera from the browser address bar, then tap Allow Camera again.");
+    }
+  }
+
   async function requestCameraAccess() {
+    if (isWeb) {
+      await startWebCamera();
+      return;
+    }
+
     setRequestingPermission(true);
     try {
       const result = await requestPermission();
@@ -132,6 +184,8 @@ export function ScannerScreen({ navigation }: any) {
       setRequestingPermission(false);
     }
   }
+
+  useEffect(() => () => stopWebCamera(), []);
 
   async function handleBarcode(data: string) {
     const barcode = normalizeBarcode(data);
@@ -206,6 +260,42 @@ export function ScannerScreen({ navigation }: any) {
     if (added) navigation.navigate("Cart");
   }
 
+  useEffect(() => {
+    if (!isWeb || webCameraState !== "ready" || scanned || submittingBarcode) return;
+
+    const BarcodeDetector = (globalThis as any).BarcodeDetector;
+    if (!BarcodeDetector) {
+      setWebCameraMessage("Camera preview is active. This browser cannot auto-detect barcodes, so enter the printed number below.");
+      return;
+    }
+
+    let active = true;
+    const detector = new BarcodeDetector({ formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39", "code_93", "itf", "codabar", "qr_code"] });
+
+    async function detectBarcode() {
+      if (!active || submittingBarcodeRef.current) return;
+      const video = webVideoRef.current;
+      try {
+        if (video?.readyState >= 2) {
+          const codes = await detector.detect(video);
+          const value = codes?.[0]?.rawValue;
+          if (value) {
+            await handleBarcode(value);
+            return;
+          }
+        }
+      } catch {
+        setWebCameraMessage("Camera preview is active. If barcode detection is slow, enter the printed number below.");
+      }
+      if (active) window.setTimeout(detectBarcode, 450);
+    }
+
+    detectBarcode();
+    return () => {
+      active = false;
+    };
+  }, [isWeb, webCameraState, scanned, submittingBarcode]);
+
   /*
     Keep this block below the main submit helpers so scanner, keyboard Enter,
     and the visible arrow all route through the same barcode lookup path.
@@ -241,12 +331,26 @@ export function ScannerScreen({ navigation }: any) {
       <ScrollView contentContainerStyle={{ paddingBottom: 26 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <View style={{ paddingHorizontal: 22 }}><Header title="Scan Barcode" subtitle="Point camera at product code" right={<IconButton name="flash-outline" />} /></View>
         <View style={styles.cameraWrap}>
-          {cameraReady ? <CameraView style={StyleSheet.absoluteFill} barcodeScannerSettings={{ barcodeTypes: supportedBarcodeTypes }} onBarcodeScanned={scanned || submittingBarcode ? undefined : ({ data }) => handleBarcode(data)} /> : (
+          {cameraReady ? (
+            isWeb ? (
+              <View style={styles.webCameraHost}>
+                {createElement("video", {
+                  ref: webVideoRef,
+                  autoPlay: true,
+                  muted: true,
+                  playsInline: true,
+                  style: styles.webVideo
+                })}
+              </View>
+            ) : (
+              <CameraView style={StyleSheet.absoluteFill} barcodeScannerSettings={{ barcodeTypes: supportedBarcodeTypes }} onBarcodeScanned={scanned || submittingBarcode ? undefined : ({ data }) => handleBarcode(data)} />
+            )
+          ) : (
             <View style={styles.cameraFallback}>
-              {requestingPermission ? <ActivityIndicator size="large" color={colors.primary} /> : <Ionicons name="camera-outline" size={64} color={colors.primary} />}
-              <Text style={styles.cameraTitle}>{requestingPermission ? "Requesting camera access" : "Camera permission required"}</Text>
-              <Text style={styles.cameraSub}>Allow camera access to scan real product barcodes like 8906032018513.</Text>
-              <PrimaryButton title={requestingPermission ? "Waiting..." : "Allow Camera"} onPress={requestCameraAccess} color={requestingPermission ? "#93C5FD" : colors.primary} />
+              {cameraLoading ? <ActivityIndicator size="large" color={colors.primary} /> : <Ionicons name="camera-outline" size={64} color={colors.primary} />}
+              <Text style={styles.cameraTitle}>{cameraLoading ? "Requesting camera access" : "Camera permission required"}</Text>
+              <Text style={styles.cameraSub}>{webCameraMessage || "Allow camera access to scan real product barcodes like 8906032018513."}</Text>
+              <PrimaryButton title={cameraLoading ? "Waiting..." : "Allow Camera"} onPress={requestCameraAccess} color={cameraLoading ? "#93C5FD" : colors.primary} />
               {permission && !permission.granted && !permission.canAskAgain ? (
                 <Pressable style={styles.settingsButton} onPress={() => Linking.openSettings().catch(() => Alert.alert("Open settings", "Open phone settings and allow camera access for Smart Cart."))}>
                   <Text style={styles.settingsText}>Open App Settings</Text>
@@ -257,7 +361,7 @@ export function ScannerScreen({ navigation }: any) {
           {cameraReady ? <View style={styles.scanFrame} /> : null}
         </View>
         <View style={{ padding: 22, gap: 12 }}>
-          {cameraReady ? <Text style={styles.scanHint}>Keep the full barcode inside the green frame. If camera detection is slow, enter the printed number below.</Text> : null}
+          {cameraReady ? <Text style={styles.scanHint}>{webCameraMessage || "Keep the full barcode inside the green frame. If camera detection is slow, enter the printed number below."}</Text> : null}
           <Text style={styles.muted}>Enter barcode manually</Text>
           <View style={styles.manualEntry}>
             <TextInput
@@ -462,6 +566,8 @@ const styles = StyleSheet.create({
   floatingScan: { position: "absolute", left: 24, bottom: 28, width: 96, height: 76, borderRadius: 28, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center", ...shadow },
   floatingScanText: { marginTop: 4, color: "white", fontWeight: "900" },
   cameraWrap: { height: 420, marginHorizontal: 22, borderRadius: 32, overflow: "hidden", backgroundColor: "#111827" },
+  webCameraHost: { ...StyleSheet.absoluteFillObject, backgroundColor: "#111827" },
+  webVideo: { width: "100%", height: "100%", objectFit: "cover" },
   cameraFallback: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, backgroundColor: "#EFF6FF" },
   cameraTitle: { marginVertical: 20, color: colors.text, fontSize: 22, fontWeight: "900" },
   cameraSub: { marginBottom: 18, color: colors.muted, textAlign: "center", fontSize: 16, lineHeight: 24, fontWeight: "800" },
