@@ -8,8 +8,9 @@ services:
   - type: web
     name: smart-cart-admin-ui
     runtime: static
-    buildCommand: npm ci && npm run build:admin
-    staticPublishPath: admin-dashboard/dist
+    rootDir: admin-dashboard
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
     routes:
       - type: rewrite
         source: /*
@@ -21,8 +22,9 @@ services:
   - type: web
     name: smart-cart-customer-ui
     runtime: static
-    buildCommand: npm ci && npm run build:customer
-    staticPublishPath: mobile-app/dist
+    rootDir: mobile-app
+    buildCommand: npm ci && npm run build:web
+    staticPublishPath: dist
     routes:
       - type: rewrite
         source: /*

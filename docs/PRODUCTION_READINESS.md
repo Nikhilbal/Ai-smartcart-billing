@@ -12,6 +12,8 @@ Use these after Render deployment:
 - Admin panel link: `https://smart-cart-admin-ui.onrender.com`
 - Backend health check: `https://smart-cart-backend.onrender.com/health`
 
+If Render appends a suffix or you created services manually, use the actual URL shown at the top of each Render service page. The URLs above work only when the Blueprint service names are created exactly as written in `render.yaml`.
+
 Use the customer app link for Razorpay onboarding. Do not use the AI service URL or backend API URL as the public customer app link.
 
 ## PostgreSQL

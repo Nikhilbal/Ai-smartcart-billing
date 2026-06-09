@@ -77,9 +77,9 @@ Build and host the static Vite app. On Render use:
 
 ```text
 Service Type: Static Site
-Root Directory: leave empty
-Build Command: npm ci && npm run build:admin
-Publish Directory: admin-dashboard/dist
+Root Directory: admin-dashboard
+Build Command: npm ci && npm run build
+Publish Directory: dist
 Environment: VITE_API_URL=https://your-backend-url/api
 ```
 
@@ -91,9 +91,9 @@ For a browser demo of the customer app, deploy the Expo web export. On Render us
 
 ```text
 Service Type: Static Site
-Root Directory: leave empty
-Build Command: npm ci && npm run build:customer
-Publish Directory: mobile-app/dist
+Root Directory: mobile-app
+Build Command: npm ci && npm run build:web
+Publish Directory: dist
 Environment: EXPO_PUBLIC_API_URL=https://your-backend-url/api
 ```
 
