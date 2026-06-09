@@ -4,6 +4,7 @@ import { z } from "zod";
 import { prisma } from "../config/prisma.js";
 import { markCartPaid } from "../services/cartService.js";
 import { approvePaymentApproval, getPaymentApproval, listPaymentApprovals, upsertPaymentApproval } from "../services/paymentApprovalService.js";
+import { createRazorpayOrder, isRazorpayConfigured, razorpayKeyId, verifyRazorpaySignature } from "../services/razorpayService.js";
 import { emitAdmin, emitCart } from "../services/realtime.js";
 import { asyncHandler, HttpError, ok } from "../utils/http.js";
 
@@ -61,6 +62,69 @@ router.post(
     const payment = await createPayment(body.cartId, PaymentMethod.CARD, PaymentStatus.PENDING, { last4: body.last4, network: body.network, simulated: true, requiresAdminApproval: true });
     emitAdmin("payment:approval-requested", payment);
     ok(res, payment, 201);
+  })
+);
+
+router.get(
+  "/razorpay/config",
+  asyncHandler(async (_req, res) => {
+    ok(res, {
+      configured: isRazorpayConfigured(),
+      keyId: razorpayKeyId() ?? null
+    });
+  })
+);
+
+router.post(
+  "/razorpay/order",
+  asyncHandler(async (req, res) => {
+    const body = z
+      .object({
+        amount: z.number().positive(),
+        cartId: z.string().optional(),
+        receipt: z.string().optional()
+      })
+      .parse(req.body);
+
+    if (!isRazorpayConfigured()) {
+      throw new HttpError(503, "Razorpay is not configured. Add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.");
+    }
+
+    const order = await createRazorpayOrder({
+      amount: body.amount,
+      receipt: body.receipt ?? `smartcart_${Date.now()}`,
+      notes: {
+        cartId: body.cartId ?? "",
+        source: "smart-cart"
+      }
+    });
+
+    ok(res, {
+      keyId: razorpayKeyId(),
+      order
+    }, 201);
+  })
+);
+
+router.post(
+  "/razorpay/verify",
+  asyncHandler(async (req, res) => {
+    const body = z
+      .object({
+        razorpay_order_id: z.string(),
+        razorpay_payment_id: z.string(),
+        razorpay_signature: z.string()
+      })
+      .parse(req.body);
+
+    const verified = verifyRazorpaySignature(body.razorpay_order_id, body.razorpay_payment_id, body.razorpay_signature);
+    if (!verified) throw new HttpError(401, "Invalid Razorpay signature");
+
+    ok(res, {
+      verified: true,
+      orderId: body.razorpay_order_id,
+      paymentId: body.razorpay_payment_id
+    });
   })
 );
 

@@ -55,6 +55,8 @@ Example:
 https://smart-cart-backend.onrender.com/api
 ```
 
+   - Keep `EXPO_PUBLIC_DEMO_OTP=false` for production builds.
+
 5. Store listing details
    - App name
    - Short description
@@ -72,6 +74,15 @@ https://smart-cart-backend.onrender.com/api
    - Real OTP provider
    - Real payment gateway or cash counter-only pilot
    - Staff/admin accounts
+
+7. Razorpay onboarding links
+   - Use the deployed customer app URL as the app/website link:
+
+```text
+https://smart-cart-customer-ui.onrender.com
+```
+
+   - You also need a privacy policy URL, support email, and approved Razorpay KYC before live payments.
 
 ## Build Commands
 
@@ -140,15 +151,16 @@ npx eas-cli@latest submit --platform all --profile production
 
 1. Deploy backend, database, AI service, and admin dashboard.
 2. Replace `EXPO_PUBLIC_API_URL` in `mobile-app/eas.json`.
-3. Build Android preview APK.
-4. Install APK on a real Android phone.
-5. Test camera scanning with real products.
-6. Test login, cart, weight verification, cash counter approval, receipt, and exit QR.
-7. Fix issues found on device.
-8. Build production Android AAB and iOS IPA.
-9. Upload to internal testing/TestFlight first.
-10. Test with store staff in the actual supermarket.
-11. Submit for public review.
+3. Set `EXPO_PUBLIC_DEMO_OTP=false`.
+4. Build Android preview APK.
+5. Install APK on a real Android phone.
+6. Test camera scanning with real products.
+7. Test login, cart, weight verification, cash counter approval, receipt, and exit QR.
+8. Fix issues found on device.
+9. Build production Android AAB and iOS IPA.
+10. Upload to internal testing/TestFlight first.
+11. Test with store staff in the actual supermarket.
+12. Submit for public review.
 
 ## Store Privacy Notes
 

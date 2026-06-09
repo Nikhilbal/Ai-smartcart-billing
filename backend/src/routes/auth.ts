@@ -3,6 +3,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../config/prisma.js";
 import { signToken } from "../middleware/auth.js";
+import { generateOtp, otpTtlMs, sendOtp, shouldExposeOtpInResponse } from "../services/otpService.js";
 import { asyncHandler, HttpError, ok } from "../utils/http.js";
 
 const router = Router();
@@ -12,11 +13,15 @@ router.post(
   "/customer-login",
   asyncHandler(async (req, res) => {
     const body = z.object({ mobile: z.string().regex(/^[6-9]\d{9}$/) }).parse(req.body);
-    otpStore.set(body.mobile, { otp: "123456", expiresAt: Date.now() + 5 * 60 * 1000 });
+    const otp = generateOtp();
+    const delivery = await sendOtp(body.mobile, otp);
+    otpStore.set(body.mobile, { otp, expiresAt: Date.now() + otpTtlMs() });
     ok(res, {
       mobile: body.mobile,
       message: "OTP sent successfully",
-      demoOtp: "123456"
+      provider: delivery.provider,
+      delivered: delivery.delivered,
+      ...(shouldExposeOtpInResponse() ? { demoOtp: otp } : {})
     });
   })
 );
@@ -29,6 +34,7 @@ router.post(
     if (!record || record.expiresAt < Date.now() || body.otp !== record.otp) {
       throw new HttpError(401, "Invalid OTP");
     }
+    otpStore.delete(body.mobile);
 
     const user = await prisma.user.upsert({
       where: { mobile: body.mobile },

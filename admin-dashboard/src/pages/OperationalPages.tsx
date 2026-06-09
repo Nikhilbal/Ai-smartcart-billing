@@ -350,24 +350,25 @@ export function BillingHistory({ filter = "all" }: { filter?: BillingFilter }) {
 }
 
 export function CashCounterVerification() {
-  const [requests, setRequests] = useState<CashRequest[]>(fallbackCashRequests);
-  const [paymentRequests, setPaymentRequests] = useState<PaymentApprovalRequest[]>(fallbackPaymentApprovals);
+  const [requests, setRequests] = useState<CashRequest[]>([]);
+  const [paymentRequests, setPaymentRequests] = useState<PaymentApprovalRequest[]>([]);
   const [selectedRequest, setSelectedRequest] = useState<CashRequest | null>(null);
   const [selectedPayment, setSelectedPayment] = useState<PaymentApprovalRequest | null>(null);
-  const [syncStatus, setSyncStatus] = useState("Listening for cash payment requests");
-  const [paymentSyncStatus, setPaymentSyncStatus] = useState("Listening for UPI/card payment approvals");
+  const [syncStatus, setSyncStatus] = useState("Connecting to cash counter queue...");
+  const [paymentSyncStatus, setPaymentSyncStatus] = useState("Connecting to UPI/card approval queue...");
   const pendingCount = requests.filter((request) => request.status === "PENDING").length;
   const pendingPaymentCount = paymentRequests.filter((request) => request.status === "PENDING").length;
+  const approvedPaymentCount = paymentRequests.filter((request) => request.status === "APPROVED").length;
 
   async function loadRequests() {
     try {
       const { data } = await api.get("/counter/cash/pending");
       const remoteRequests = data.data as CashRequest[];
-      setRequests(remoteRequests.length > 0 ? remoteRequests : fallbackCashRequests);
-      setSyncStatus(remoteRequests.length > 0 ? "Live counter queue connected" : "No live request yet, showing demo counter token");
+      setRequests(remoteRequests);
+      setSyncStatus(remoteRequests.length > 0 ? "Live cash counter queue connected" : "Backend connected. No cash counter requests right now.");
     } catch {
-      setRequests((current) => (current.length > 0 ? current : fallbackCashRequests));
-      setSyncStatus("Backend not connected, using demo counter queue");
+      setRequests([]);
+      setSyncStatus("Backend not connected. Start smart-cart-backend and refresh this page.");
     }
   }
 
@@ -375,11 +376,11 @@ export function CashCounterVerification() {
     try {
       const { data } = await api.get("/payment/approval/pending");
       const remoteRequests = data.data as PaymentApprovalRequest[];
-      setPaymentRequests(remoteRequests.length > 0 ? remoteRequests : fallbackPaymentApprovals);
-      setPaymentSyncStatus(remoteRequests.length > 0 ? "Live payment approval queue connected" : "No live online payment yet, showing demo approval token");
+      setPaymentRequests(remoteRequests);
+      setPaymentSyncStatus(remoteRequests.length > 0 ? "Live UPI/card approval queue connected" : "Backend connected. No UPI/card approvals right now.");
     } catch {
-      setPaymentRequests((current) => (current.length > 0 ? current : fallbackPaymentApprovals));
-      setPaymentSyncStatus("Backend not connected, using demo payment approval queue");
+      setPaymentRequests([]);
+      setPaymentSyncStatus("Backend not connected. Customer approval requests cannot arrive until the API is reachable.");
     }
   }
 
@@ -487,15 +488,16 @@ export function CashCounterVerification() {
             <div className="grid h-12 w-12 place-items-center rounded-2xl bg-emerald-50 text-success"><CheckCircle2 /></div>
             <Badge className="bg-emerald-50 text-success">verified</Badge>
           </div>
-          <div className="mt-6 font-mono text-4xl font-black text-ink">{requests.filter((request) => request.status === "VERIFIED").length}</div>
-          <div className="mt-1 text-sm font-extrabold text-gray-500">Confirmed by counter staff</div>
+          <div className="mt-6 font-mono text-4xl font-black text-ink">{approvedPaymentCount + requests.filter((request) => request.status === "VERIFIED").length}</div>
+          <div className="mt-1 text-sm font-extrabold text-gray-500">Confirmed by staff</div>
         </Card>
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div className="grid h-12 w-12 place-items-center rounded-2xl bg-blue-50 text-brand"><RefreshCw /></div>
             <Badge className="bg-blue-50 text-brand">auto refresh</Badge>
           </div>
-          <div className="mt-6 text-lg font-extrabold text-ink">{pendingPaymentCount > 0 ? paymentSyncStatus : syncStatus}</div>
+          <div className="mt-6 text-lg font-extrabold text-ink">{paymentSyncStatus}</div>
+          <div className="mt-2 text-sm font-bold text-gray-500">{syncStatus}</div>
           <div className="mt-1 text-sm font-bold text-gray-500">Updates every 2.5 seconds</div>
         </Card>
       </div>
@@ -513,6 +515,16 @@ export function CashCounterVerification() {
             <tr><th className="px-6 py-5">Reference</th><th className="px-6 py-5">Customer</th><th className="px-6 py-5">Method</th><th className="px-6 py-5">Desk / Staff</th><th className="px-6 py-5">Amount</th><th className="px-6 py-5">Status</th><th className="px-6 py-5">Action</th></tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
+            {paymentRequests.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="px-6 py-10 text-center">
+                  <div className="text-lg font-extrabold text-gray-700">No live UPI/card approval requests</div>
+                  <div className="mt-2 text-sm font-bold text-gray-500">
+                    Ask the customer to tap “Check admin approval status” once the backend is running. The same payment reference will appear here.
+                  </div>
+                </td>
+              </tr>
+            ) : null}
             {paymentRequests.map((request) => (
               <tr key={request.token} onClick={() => setSelectedPayment(request)} className="cursor-pointer hover:bg-blue-50/50">
                 <td className="px-6 py-5">
@@ -565,6 +577,14 @@ export function CashCounterVerification() {
             <tr><th className="px-6 py-5">Token</th><th className="px-6 py-5">Customer</th><th className="px-6 py-5">Counter / Staff</th><th className="px-6 py-5">Cart</th><th className="px-6 py-5">Amount</th><th className="px-6 py-5">Status</th><th className="px-6 py-5">Action</th></tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
+            {requests.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="px-6 py-10 text-center">
+                  <div className="text-lg font-extrabold text-gray-700">No live cash counter requests</div>
+                  <div className="mt-2 text-sm font-bold text-gray-500">Cash requests will appear here after a customer chooses Cash at Counter.</div>
+                </td>
+              </tr>
+            ) : null}
             {requests.map((request) => (
               <tr key={request.token} onClick={() => setSelectedRequest(request)} className="cursor-pointer hover:bg-blue-50/50">
                 <td className="px-6 py-5">

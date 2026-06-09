@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Alert, Image, ImageBackground, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Header, PrimaryButton, Screen } from "../components/Ui";
 import { onboarding } from "../data/products";
+import { requestOtp, verifyOtp } from "../services/api";
 import { useCustomerStore } from "../store/customerStore";
 import { colors, shadow } from "../theme";
 
@@ -80,7 +81,21 @@ export function OnboardingScreen({ navigation }: any) {
 
 export function LoginScreen({ navigation }: any) {
   const [mobile, setMobile] = useState("");
+  const [sending, setSending] = useState(false);
   const valid = /^[6-9]\d{9}$/.test(mobile);
+
+  async function sendOtpAndContinue() {
+    if (!valid || sending) return;
+    setSending(true);
+    try {
+      await requestOtp(mobile);
+      navigation.navigate("OTP", { mobile });
+    } catch (error) {
+      Alert.alert("OTP failed", "Could not send OTP right now. Please check the backend URL and OTP provider settings.");
+    } finally {
+      setSending(false);
+    }
+  }
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
@@ -103,7 +118,7 @@ export function LoginScreen({ navigation }: any) {
             <View style={styles.divider} />
             <TextInput keyboardType="number-pad" maxLength={10} value={mobile} onChangeText={setMobile} placeholder="Enter 10-digit number" placeholderTextColor="#9CA3AF" style={styles.phoneText} />
           </View>
-          <PrimaryButton title="Send OTP" color={valid ? colors.primary : "#BFDBFE"} onPress={() => valid && navigation.navigate("OTP", { mobile })} />
+          <PrimaryButton title={sending ? "Sending OTP" : "Send OTP"} color={valid ? colors.primary : "#BFDBFE"} onPress={sendOtpAndContinue} />
           <View style={styles.or}><View style={styles.line} /><Text style={styles.orText}>or</Text><View style={styles.line} /></View>
           <Pressable style={styles.admin} onPress={() => Alert.alert("Admin Dashboard", "Open http://localhost:5173")}>
             <Ionicons name="lock-closed-outline" size={24} color="#374151" />
@@ -119,13 +134,23 @@ export function LoginScreen({ navigation }: any) {
 }
 
 export function OtpScreen({ route, navigation }: any) {
-  const [otp, setOtp] = useState("123456");
+  const demoOtpEnabled = process.env.EXPO_PUBLIC_DEMO_OTP !== "false";
+  const [otp, setOtp] = useState(demoOtpEnabled ? "123456" : "");
+  const [verifying, setVerifying] = useState(false);
   const loginWithMobile = useCustomerStore((state) => state.loginWithMobile);
 
   async function verifyAndContinue() {
-    if (otp.length !== 6) return;
-    await loginWithMobile(route.params.mobile);
-    navigation.replace("Main");
+    if (otp.length !== 6 || verifying) return;
+    setVerifying(true);
+    try {
+      await verifyOtp(route.params.mobile, otp);
+      await loginWithMobile(route.params.mobile);
+      navigation.replace("Main");
+    } catch (error) {
+      Alert.alert("Invalid OTP", "Please enter the OTP sent to your mobile number.");
+    } finally {
+      setVerifying(false);
+    }
   }
 
   return (
@@ -133,11 +158,11 @@ export function OtpScreen({ route, navigation }: any) {
       <Header title="Verify OTP" subtitle={`Sent to +91 ${route.params.mobile}`} />
       <View style={styles.otpCard}>
         <Text style={styles.formTitle}>Enter OTP</Text>
-        <Text style={styles.formSub}>Use 123456 for the demo build.</Text>
+        <Text style={styles.formSub}>{demoOtpEnabled ? "Use 123456 for local/demo builds." : "Enter the OTP sent to your phone."}</Text>
         <TextInput keyboardType="number-pad" maxLength={6} value={otp} onChangeText={setOtp} style={styles.otp} />
       </View>
       <View style={{ flex: 1 }} />
-      <PrimaryButton title="Verify & Continue" icon="checkmark" onPress={verifyAndContinue} />
+      <PrimaryButton title={verifying ? "Verifying" : "Verify & Continue"} icon="checkmark" onPress={verifyAndContinue} />
       <View style={{ height: 26 }} />
     </Screen>
   );

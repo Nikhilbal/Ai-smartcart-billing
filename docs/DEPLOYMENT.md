@@ -27,6 +27,8 @@ smart-cart-ai-service     FastAPI AI API
 
 In Render, use **New → Blueprint**, connect this repo, and Render will create the UI and API services.
 
+The blueprint also creates managed PostgreSQL as `smart-cart-postgres` and passes its connection string to the backend as `DATABASE_URL`.
+
 ## Backend
 
 Deploy the Express API to Render, Fly.io, Railway, AWS ECS, or a VM.
@@ -37,8 +39,12 @@ Required environment variables:
 DATABASE_URL=postgresql://...
 JWT_SECRET=long-random-secret
 AI_SERVICE_URL=https://your-ai-service.example.com
-CORS_ORIGIN=https://your-admin.example.com
+CORS_ORIGIN=https://your-admin.example.com,https://your-customer.example.com
 PORT=4000
+OTP_PROVIDER=http
+OTP_EXPOSE_DEMO_OTP=false
+RAZORPAY_KEY_ID=rzp_live_xxxxx
+RAZORPAY_KEY_SECRET=xxxxx
 ```
 
 Run:
@@ -47,6 +53,7 @@ Run:
 npm --prefix backend ci
 npm --prefix backend run prisma:generate
 npm --prefix backend run build
+npm --prefix backend run prisma:deploy
 npm --prefix backend run start
 ```
 
@@ -55,7 +62,13 @@ npm --prefix backend run start
 Use managed PostgreSQL. Run Prisma migrations during release:
 
 ```bash
-npm --prefix backend run prisma:migrate
+npm --prefix backend run prisma:deploy
+```
+
+For the first MVP seed, run:
+
+```bash
+npm --prefix backend run seed
 ```
 
 ## Admin Dashboard
@@ -97,7 +110,11 @@ npx eas-cli@latest build --platform ios --profile production
 
 Set `EXPO_PUBLIC_API_URL=https://api.example.com/api`.
 
+Set `EXPO_PUBLIC_DEMO_OTP=false` for store builds.
+
 For full Play Store and App Store steps, see [MOBILE_STORE_DEPLOYMENT.md](/Users/balanikhil/Documents/Codex/2026-05-27/role-you-are-a-senior-full/docs/MOBILE_STORE_DEPLOYMENT.md).
+
+For live OTP, Razorpay, PostgreSQL, and provider requirements, see [PRODUCTION_READINESS.md](/Users/balanikhil/Documents/Codex/2026-05-27/role-you-are-a-senior-full/docs/PRODUCTION_READINESS.md).
 
 ## AI Service
 

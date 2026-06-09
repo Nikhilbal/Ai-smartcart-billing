@@ -272,20 +272,27 @@ async function main() {
     });
   }
 
-  await prisma.fraudEvent.create({
-    data: {
-      userId: user.id,
-      type: FraudType.WEIGHT_MISMATCH,
-      risk: RiskLevel.HIGH,
-      status: FraudStatus.ACTIVE,
-      title: "Cart #5892 — Weight mismatch 45%",
-      description: "Expected 3.87kg, actual 5.20kg. Possible unscanned item.",
-      expectedWeightKg: 3.87,
-      actualWeightKg: 5.2,
-      variancePercent: 34.37,
-      metadata: { store: store.code, customer: "Raj Kumar", time: "08:53 AM" }
-    }
+  const seededFraudTitle = "Cart #5892 — Weight mismatch 45%";
+  const existingFraudEvent = await prisma.fraudEvent.findFirst({
+    where: { userId: user.id, title: seededFraudTitle }
   });
+
+  if (!existingFraudEvent) {
+    await prisma.fraudEvent.create({
+      data: {
+        userId: user.id,
+        type: FraudType.WEIGHT_MISMATCH,
+        risk: RiskLevel.HIGH,
+        status: FraudStatus.ACTIVE,
+        title: seededFraudTitle,
+        description: "Expected 3.87kg, actual 5.20kg. Possible unscanned item.",
+        expectedWeightKg: 3.87,
+        actualWeightKg: 5.2,
+        variancePercent: 34.37,
+        metadata: { store: store.code, customer: "Raj Kumar", time: "08:53 AM" }
+      }
+    });
+  }
 
   console.log(`Seeded ${store.name}, admin ${admin.email}, demo user ${user.mobile}, and ${products.length} products.`);
 }

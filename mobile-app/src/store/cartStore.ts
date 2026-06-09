@@ -18,6 +18,9 @@ type Payment = {
   method: "UPI" | "CARD" | "CASH";
   reference: string;
   status: "CONFIRMED" | "PENDING_COUNTER" | "PENDING_ADMIN";
+  amount?: number;
+  customerName?: string;
+  upiId?: string;
 };
 
 type CartState = {
@@ -31,7 +34,7 @@ type CartState = {
   changeQuantity: (productId: string, delta: number) => void;
   clear: () => void;
   verifyWeight: (actualWeight: number) => boolean;
-  pay: (method: Payment["method"]) => void;
+  pay: (method: Payment["method"], details?: Pick<Payment, "amount" | "customerName" | "upiId">) => void;
   approvePayment: () => void;
   confirmCashPayment: () => void;
 };
@@ -72,12 +75,13 @@ export const useCartStore = create<CartState>((set, get) => ({
     }));
     return passed;
   },
-  pay: (method) =>
+  pay: (method, details = {}) =>
     set((state) => ({
       payment: {
         method,
         reference: method === "CASH" ? "CASH5892" : `${method}${Date.now()}`.slice(0, 18),
-        status: method === "CASH" ? "PENDING_COUNTER" : "PENDING_ADMIN"
+        status: method === "CASH" ? "PENDING_COUNTER" : "PENDING_ADMIN",
+        ...details
       },
       items: state.items
     })),

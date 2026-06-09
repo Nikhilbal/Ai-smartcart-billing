@@ -200,7 +200,8 @@ export function UpiPaymentScreen({ navigation }: any) {
   const upiPayload = `upi://pay?pa=${encodeURIComponent(upi)}&pn=${encodeURIComponent("Smart Supermarket")}&am=${total.toFixed(2)}&cu=INR&tn=${encodeURIComponent(`Smart Cart bill ${receiptId}`)}`;
 
   async function submitUpiPayment() {
-    pay("UPI");
+    const customerName = customer?.name ?? "Smart Cart Customer";
+    pay("UPI", { amount: total, customerName, upiId: upi });
     const payment = useCartStore.getState().payment;
     if (payment) {
       try {
@@ -208,7 +209,7 @@ export function UpiPaymentScreen({ navigation }: any) {
           method: "UPI",
           reference: payment.reference,
           total,
-          customerName: customer?.name ?? "Smart Cart Customer",
+          customerName,
           upiId: upi
         });
       } catch {
@@ -263,7 +264,8 @@ export function CardPaymentScreen({ navigation }: any) {
   const total = getTotal(items);
 
   async function submitCardPayment() {
-    pay("CARD");
+    const customerName = customer?.name ?? "Smart Cart Customer";
+    pay("CARD", { amount: total, customerName });
     const payment = useCartStore.getState().payment;
     if (payment) {
       try {
@@ -271,7 +273,7 @@ export function CardPaymentScreen({ navigation }: any) {
           method: "CARD",
           reference: payment.reference,
           total,
-          customerName: customer?.name ?? "Smart Cart Customer"
+          customerName
         });
       } catch {
         // The payment stays locked until admin approval can be checked.
@@ -428,12 +430,30 @@ function PaymentForm({ title, input, setInput, placeholder, icon, onPay }: { tit
 export function PaymentSuccessScreen({ navigation }: any) {
   const items = useCartStore((state) => state.items);
   const payment = useCartStore((state) => state.payment);
+  const customer = useCustomerStore((state) => state.customer);
   const approvePayment = useCartStore((state) => state.approvePayment);
   const total = getTotal(items);
   const [approvalRequest, setApprovalRequest] = useState<PaymentApprovalRequest | null>(null);
   const [approvalMessage, setApprovalMessage] = useState("Waiting for admin to confirm this payment in the approval queue.");
   const [lastCheckedAt, setLastCheckedAt] = useState("");
   const needsAdminApproval = payment?.status === "PENDING_ADMIN";
+
+  async function resendAdminApprovalRequest() {
+    if (!payment?.reference || payment.method === "CASH") return null;
+    const { data } = await api.post("/payment/approval/request", {
+      token: payment.reference,
+      cartId: "CART5911",
+      customerName: payment.customerName ?? customer?.name ?? "Smart Cart Customer",
+      amount: payment.amount ?? total,
+      method: payment.method,
+      reference: payment.reference,
+      upiId: payment.upiId
+    });
+    const request = data.data as PaymentApprovalRequest;
+    setApprovalRequest(request);
+    setApprovalMessage(`Approval request sent to ${request.counterName}. ${request.staffName} must approve it in Admin > Payment Approvals.`);
+    return request;
+  }
 
   async function checkAdminApproval(showAlert = false) {
     if (!payment?.reference || !needsAdminApproval) return;
@@ -459,8 +479,18 @@ export function PaymentSuccessScreen({ navigation }: any) {
         );
       }
     } catch {
-      setApprovalMessage("Admin approval queue is offline. Keep this screen open and ask staff to open Admin > Payment Approvals.");
-      if (showAlert) Alert.alert("Approval status unavailable", `Status: NOT FOUND / OFFLINE\nReference: ${payment.reference}\nExit QR: LOCKED\nLast checked: ${checkedAt}`);
+      try {
+        const request = await resendAdminApprovalRequest();
+        if (showAlert && request) {
+          Alert.alert(
+            "Approval request sent",
+            `Reference: ${request.reference}\nDesk: ${request.counterName}\nStaff: ${request.staffName}\nAmount: ₹${(payment.amount ?? total).toFixed(2)}\nExit QR: LOCKED until admin approves.`
+          );
+        }
+      } catch {
+        setApprovalMessage("Admin approval queue is offline. Start the backend, then tap this button again to send the request to Admin > Payment Approvals.");
+        if (showAlert) Alert.alert("Approval status unavailable", `Status: NOT FOUND / OFFLINE\nReference: ${payment.reference}\nExit QR: LOCKED\nLast checked: ${checkedAt}`);
+      }
     }
   }
 

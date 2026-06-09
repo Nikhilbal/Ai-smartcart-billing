@@ -10,7 +10,8 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://YOUR_BACKEND_URL/api"
+        "EXPO_PUBLIC_API_URL": "https://YOUR_BACKEND_URL/api",
+        "EXPO_PUBLIC_DEMO_OTP": "false"
       }
     },
     "production": {
@@ -23,7 +24,8 @@
         "simulator": false
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://YOUR_BACKEND_URL/api"
+        "EXPO_PUBLIC_API_URL": "https://YOUR_BACKEND_URL/api",
+        "EXPO_PUBLIC_DEMO_OTP": "false"
       }
     }
   },

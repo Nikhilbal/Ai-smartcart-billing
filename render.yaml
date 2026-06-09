@@ -1,3 +1,9 @@
+databases:
+  - name: smart-cart-postgres
+    databaseName: smartcart
+    user: smartcart
+    plan: free
+
 services:
   - type: web
     name: smart-cart-admin-ui
@@ -24,6 +30,8 @@ services:
     envVars:
       - key: EXPO_PUBLIC_API_URL
         sync: false
+      - key: EXPO_PUBLIC_DEMO_OTP
+        value: "false"
 
   - type: web
     name: smart-cart-backend
@@ -31,6 +39,8 @@ services:
     rootDir: backend
     plan: free
     buildCommand: npm ci && npx prisma generate && npm run build
+    preDeployCommand: npm run prisma:deploy
+    initialDeployHook: npm run seed:prod
     startCommand: npm run start
     healthCheckPath: /health
     envVars:
@@ -41,10 +51,32 @@ services:
       - key: STORE_ID
         value: mumbai-vile-parle
       - key: DATABASE_URL
-        sync: false
+        fromDatabase:
+          name: smart-cart-postgres
+          property: connectionString
       - key: AI_SERVICE_URL
         sync: false
       - key: CORS_ORIGIN
+        sync: false
+      - key: OTP_PROVIDER
+        value: demo
+      - key: OTP_EXPOSE_DEMO_OTP
+        value: "false"
+      - key: OTP_TTL_SECONDS
+        value: "300"
+      - key: OTP_HTTP_URL
+        sync: false
+      - key: OTP_HTTP_METHOD
+        value: POST
+      - key: OTP_HTTP_AUTH_HEADER
+        sync: false
+      - key: OTP_HTTP_AUTH_VALUE
+        sync: false
+      - key: OTP_HTTP_BODY
+        sync: false
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
         sync: false
 
   - type: web
