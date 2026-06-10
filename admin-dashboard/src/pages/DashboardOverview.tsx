@@ -5,7 +5,8 @@ import type { ReactNode } from "react";
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 import { DetailDrawer, DetailGrid } from "../components/DetailDrawer";
 import { Badge, Button, Card } from "../components/ui";
-import { activeCarts, alerts, bills, customers, fraudEvents, weeklySales } from "../data/mock";
+import { activeCarts, alerts, customers, fraudEvents } from "../data/mock";
+import { useOperationalData } from "../hooks/useOperationalData";
 import { inr } from "../lib/utils";
 import type { BillingFilter } from "../App";
 import type { PageKey } from "../components/Sidebar";
@@ -13,20 +14,6 @@ import type { Product } from "../data/mock";
 import type { ReorderRequest } from "../types/reorder";
 
 type DrilldownKey = "sales" | "transactions" | "customers" | "avgCart" | "activeCarts" | "pendingPayments" | "fraud" | null;
-
-const metrics: Array<{
-  label: string;
-  value: string;
-  icon: string;
-  badge: string;
-  tone: string;
-  detail: Exclude<DrilldownKey, null>;
-}> = [
-  { label: "Today's Sales", value: "₹1,45,230", icon: "💰", badge: "+12% vs YD", tone: "bg-emerald-50 text-success", detail: "sales" },
-  { label: "Transactions", value: "287", icon: "📦", badge: "+8 this hour", tone: "bg-blue-50 text-brand", detail: "transactions" },
-  { label: "Customers", value: "412", icon: "👥", badge: "Target: 80%", tone: "bg-purple-50 text-purple", detail: "customers" },
-  { label: "Avg Cart Value", value: "₹506", icon: "🛒", badge: "↑ ₹23 today", tone: "bg-orange-50 text-warning", detail: "avgCart" }
-];
 
 type Props = {
   onNavigate: (page: PageKey, filter?: BillingFilter) => void;
@@ -42,11 +29,26 @@ function statusBadge(status: string) {
 
 export function DashboardOverview({ onNavigate, onReorder, reorderRequests }: Props) {
   const [drilldown, setDrilldown] = useState<DrilldownKey>(null);
+  const { overview, bills, source } = useOperationalData();
   const openReorders = reorderRequests.filter((request) => request.status !== "RECEIVED");
   const paidBills = bills.filter((bill) => bill.status === "PAID");
   const pendingBills = bills.filter((bill) => bill.status !== "PAID");
-  const billedTotal = useMemo(() => bills.reduce((sum, bill) => sum + bill.total, 0), []);
-  const avgBill = billedTotal / bills.length;
+  const billedTotal = useMemo(() => paidBills.reduce((sum, bill) => sum + bill.total, 0), [paidBills]);
+  const avgBill = paidBills.length ? billedTotal / paidBills.length : 0;
+  const visibleCustomerCount = Math.max(overview.customers, customers.length);
+  const metrics: Array<{
+    label: string;
+    value: string;
+    icon: string;
+    badge: string;
+    tone: string;
+    detail: Exclude<DrilldownKey, null>;
+  }> = [
+    { label: "Today's Sales", value: inr(overview.todaySales), icon: "💰", badge: source === "backend" ? "Live" : "Demo", tone: "bg-emerald-50 text-success", detail: "sales" },
+    { label: "Transactions", value: String(overview.totalTransactions), icon: "📦", badge: source === "backend" ? "Auto update" : "Demo", tone: "bg-blue-50 text-brand", detail: "transactions" },
+    { label: "Customers", value: String(visibleCustomerCount), icon: "👥", badge: "Target: 80%", tone: "bg-purple-50 text-purple", detail: "customers" },
+    { label: "Avg Cart Value", value: inr(overview.averageCartValue), icon: "🛒", badge: source === "backend" ? "Live avg" : "Demo avg", tone: "bg-orange-50 text-warning", detail: "avgCart" }
+  ];
 
   function closeDrilldown() {
     setDrilldown(null);
@@ -148,7 +150,7 @@ export function DashboardOverview({ onNavigate, onReorder, reorderRequests }: Pr
           </div>
           <div className="h-[320px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={weeklySales}>
+              <BarChart data={overview.weeklySales}>
                 <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontWeight: 700, fill: "#6B7280" }} />
                 <Tooltip formatter={(value) => inr(Number(value))} cursor={{ fill: "#EFF6FF" }} />
                 <Bar dataKey="sales" fill="#2563EB" radius={[10, 10, 0, 0]} barSize={38} />
@@ -161,21 +163,21 @@ export function DashboardOverview({ onNavigate, onReorder, reorderRequests }: Pr
           <button type="button" onClick={() => setDrilldown("activeCarts")} className="text-left">
             <Card className="bg-blue-50 p-8 text-center transition hover:-translate-y-1 hover:border-brand/30">
               <ShoppingCart className="mx-auto mb-2 text-brand" />
-              <div className="text-5xl font-black text-brand">12</div>
+              <div className="text-5xl font-black text-brand">{overview.activeCarts || activeCarts.length}</div>
               <div className="mt-2 font-bold text-gray-500">Active Carts</div>
             </Card>
           </button>
           <button type="button" onClick={() => setDrilldown("pendingPayments")} className="text-left">
             <Card className="bg-yellow-50 p-8 text-center transition hover:-translate-y-1 hover:border-warning/30">
               <Package className="mx-auto mb-2 text-warning" />
-              <div className="text-5xl font-black text-warning">2</div>
+              <div className="text-5xl font-black text-warning">{overview.pendingPayments}</div>
               <div className="mt-2 font-bold text-gray-500">Pending Payments</div>
             </Card>
           </button>
           <button type="button" onClick={() => setDrilldown("fraud")} className="text-left">
             <Card className="bg-emerald-50 p-8 text-center transition hover:-translate-y-1 hover:border-success/30">
               <Users className="mx-auto mb-2 text-success" />
-              <div className="text-5xl font-black text-success">0</div>
+              <div className="text-5xl font-black text-success">{overview.fraudEvents}</div>
               <div className="mt-2 font-bold text-gray-500">Fraud Detections</div>
             </Card>
           </button>
@@ -185,7 +187,7 @@ export function DashboardOverview({ onNavigate, onReorder, reorderRequests }: Pr
       <DetailDrawer open={Boolean(drilldown)} onClose={closeDrilldown} title={drilldownTitle} subtitle="Drilldown from Dashboard Overview" wide>
         {drilldown === "sales" ? (
           <div className="space-y-6">
-            <DetailGrid rows={[["Dashboard Sales", "₹1,45,230"], ["Seeded Bill Total", inr(billedTotal)], ["Paid Bills", paidBills.length], ["Weekly Total", inr(weeklySales.reduce((sum, day) => sum + day.sales, 0))]]} />
+            <DetailGrid rows={[["Today's Sales", inr(overview.todaySales)], ["Paid Bill Total", inr(billedTotal)], ["Paid Bills", paidBills.length], ["Weekly Total", inr(overview.weeklySales.reduce((sum, day) => sum + day.sales, 0))], ["Source", source === "backend" ? "Backend live activity" : "Demo fallback"]]} />
             <RecordSection title="Sales Records" action={<Button className="bg-brand text-white" onClick={() => go("sales")}>View Sales Analytics</Button>}>
               {bills.map((bill) => (
                 <RecordRow key={bill.id} title={`${bill.id} · ${bill.customer}`} meta={`${bill.time} · ${bill.method} · ${bill.items} items`} value={inr(bill.total)} badge={bill.status} />
@@ -212,7 +214,7 @@ export function DashboardOverview({ onNavigate, onReorder, reorderRequests }: Pr
 
         {drilldown === "avgCart" ? (
           <div className="space-y-6">
-            <DetailGrid rows={[["Dashboard Avg Cart", "₹506"], ["Current Bill Average", inr(avgBill)], ["Highest Cart", inr(Math.max(...bills.map((bill) => bill.total)))], ["Lowest Cart", inr(Math.min(...bills.map((bill) => bill.total)))]]} />
+            <DetailGrid rows={[["Dashboard Avg Cart", inr(overview.averageCartValue)], ["Current Bill Average", inr(avgBill)], ["Highest Cart", inr(bills.length ? Math.max(...bills.map((bill) => bill.total)) : 0)], ["Lowest Cart", inr(bills.length ? Math.min(...bills.map((bill) => bill.total)) : 0)]]} />
             <RecordSection title="Cart Value Records" action={<Button className="bg-brand text-white" onClick={() => go("billing", "all")}>View Transactions</Button>}>
               {bills.map((bill) => (
                 <RecordRow key={bill.id} title={bill.cartId} meta={`${bill.customer} · ${bill.items} items · ${bill.method}`} value={inr(bill.total)} badge={bill.status} />

@@ -3,6 +3,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../config/prisma.js";
 import { markCartPaid } from "../services/cartService.js";
+import { recordPaidPaymentBill, recordPaymentApprovalBill } from "../services/activityLedger.js";
 import { approvePaymentApproval, getPaymentApproval, listPaymentApprovals, upsertPaymentApproval } from "../services/paymentApprovalService.js";
 import { createRazorpayOrder, isRazorpayConfigured, razorpayKeyId, verifyRazorpaySignature } from "../services/razorpayService.js";
 import { emitAdmin, emitCart } from "../services/realtime.js";
@@ -171,7 +172,9 @@ router.put(
     const body = z.object({ approvedBy: z.string().default("admin") }).parse(req.body);
     const request = approvePaymentApproval(req.params.token, body.approvedBy);
     if (!request) throw new HttpError(404, "Payment approval request not found");
+    const bill = recordPaymentApprovalBill(request);
     emitAdmin("payment:approval-approved", request);
+    emitAdmin("admin:activity-updated", bill);
     emitCart(request.cartId, "payment:approval-approved", request);
     ok(res, request);
   })
@@ -191,7 +194,7 @@ router.put(
   asyncHandler(async (req, res) => {
     const payment = await prisma.payment.findUnique({
       where: { id: req.params.paymentId },
-      include: { cart: true }
+      include: { cart: { include: { user: true, items: true } } }
     });
     if (!payment) throw new HttpError(404, "Payment not found");
     if (payment.method !== PaymentMethod.CASH) throw new HttpError(409, "Only cash payments can be counter-confirmed");
@@ -211,8 +214,19 @@ router.put(
     });
 
     await markCartPaid(payment.cartId);
+    const bill = recordPaidPaymentBill({
+      cartId: payment.cartId,
+      customerName: payment.cart.user.name,
+      amount: updated.amount,
+      method: updated.method,
+      reference: updated.reference,
+      itemCount: payment.cart.items.length,
+      createdAt: new Date().toISOString(),
+      approvedBy: "counter-staff"
+    });
     emitCart(payment.cartId, "payment:cash-confirmed", updated);
     emitAdmin("payment:cash-confirmed", updated);
+    emitAdmin("admin:activity-updated", bill);
     ok(res, updated);
   })
 );
@@ -223,7 +237,7 @@ router.put(
     const body = z.object({ approvedBy: z.string().default("admin") }).parse(req.body);
     const payment = await prisma.payment.findUnique({
       where: { id: req.params.paymentId },
-      include: { cart: true }
+      include: { cart: { include: { user: true, items: true } } }
     });
     if (!payment) throw new HttpError(404, "Payment not found");
     if (payment.status === PaymentStatus.PAID) return ok(res, payment);
@@ -242,8 +256,23 @@ router.put(
     });
 
     await markCartPaid(payment.cartId);
+    const gatewayResponse = typeof updated.gatewayResponse === "object" && updated.gatewayResponse !== null && !Array.isArray(updated.gatewayResponse)
+      ? updated.gatewayResponse as Record<string, unknown>
+      : {};
+    const bill = recordPaidPaymentBill({
+      cartId: payment.cartId,
+      customerName: payment.cart.user.name,
+      amount: updated.amount,
+      method: updated.method,
+      reference: updated.reference,
+      upiId: typeof gatewayResponse.upiId === "string" ? gatewayResponse.upiId : undefined,
+      itemCount: payment.cart.items.length,
+      createdAt: new Date().toISOString(),
+      approvedBy: body.approvedBy
+    });
     emitCart(payment.cartId, "payment:approved", updated);
     emitAdmin("payment:approved", updated);
+    emitAdmin("admin:activity-updated", bill);
     ok(res, updated);
   })
 );

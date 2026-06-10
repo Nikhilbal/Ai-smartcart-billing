@@ -2,7 +2,8 @@ import { Activity, AlertTriangle, Banknote, CheckCircle2, Clock3, CreditCard, Ey
 import { useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Line, LineChart as ReLineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { io } from "socket.io-client";
-import { activeCarts, bills, customers, products, weeklySales } from "../data/mock";
+import { activeCarts, bills as fallbackBills, customers, products } from "../data/mock";
+import { useOperationalData, type AdminBill } from "../hooks/useOperationalData";
 import { api } from "../lib/api";
 import { cn, inr } from "../lib/utils";
 import { Badge, Button, Card, Input } from "../components/ui";
@@ -46,7 +47,7 @@ type PaymentApprovalRequest = {
   approvedBy?: string;
 };
 
-const fallbackCashRequests: CashRequest[] = bills
+const fallbackCashRequests: CashRequest[] = fallbackBills
   .filter((bill) => bill.method === "CASH")
   .map((bill) => ({
     token: bill.reference,
@@ -158,21 +159,26 @@ export function CartMonitoring() {
 }
 
 export function SalesAnalytics({ onNavigate }: { onNavigate: (page: PageKey, filter?: BillingFilter) => void }) {
+  const { overview, bills } = useOperationalData();
+  const paidBills = bills.filter((bill) => bill.status === "PAID");
+  const upiPaidCount = paidBills.filter((bill) => bill.method === "UPI").length;
+  const upiShare = paidBills.length ? Math.round(upiPaidCount / paidBills.length * 100) : 0;
+  const weekTotal = overview.weeklySales.reduce((sum, day) => sum + day.sales, 0);
   const salesCards = [
-    { label: "Today", value: 145230, onClick: () => onNavigate("billing", "all") },
-    { label: "This Week", value: 865000, onClick: () => onNavigate("sales") },
-    { label: "UPI Share", value: 72, suffix: "%", onClick: () => onNavigate("billing", "upi") },
-    { label: "Best Product", value: 1234, onClick: () => onNavigate("inventory") }
+    { label: "Today", value: inr(overview.todaySales), onClick: () => onNavigate("billing", "all") },
+    { label: "This Week", value: inr(weekTotal), onClick: () => onNavigate("sales") },
+    { label: "UPI Share", value: `${upiShare}%`, onClick: () => onNavigate("billing", "upi") },
+    { label: "Best Product", value: "1234", onClick: () => onNavigate("inventory") }
   ];
 
   return (
     <div className="space-y-6">
       <div className="grid gap-6 md:grid-cols-4">
-        {salesCards.map(({ label, value, suffix, onClick }) => (
+        {salesCards.map(({ label, value, onClick }) => (
           <button key={label} type="button" onClick={onClick} className="text-left">
           <Card className="h-full p-6 transition hover:-translate-y-1 hover:border-brand/30">
             <div className="text-sm font-extrabold text-gray-500">{label}</div>
-            <div className="mt-4 font-mono text-3xl font-black text-ink">{value > 2000 ? inr(value) : `${value}${suffix ?? ""}`}</div>
+            <div className="mt-4 font-mono text-3xl font-black text-ink">{value}</div>
           </Card>
           </button>
         ))}
@@ -181,7 +187,7 @@ export function SalesAnalytics({ onNavigate }: { onNavigate: (page: PageKey, fil
         <h2 className="mb-6 flex items-center gap-3 text-2xl font-extrabold"><LineChart className="text-brand" /> Weekly Sales Chart</h2>
         <div className="h-[420px]">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={weeklySales}>
+            <BarChart data={overview.weeklySales}>
               <CartesianGrid stroke="#EEF2F7" vertical={false} />
               <XAxis dataKey="day" tickLine={false} axisLine={false} />
               <YAxis tickFormatter={(value) => `₹${Number(value) / 1000}k`} tickLine={false} axisLine={false} />
@@ -246,8 +252,10 @@ export function CustomerManagement() {
 }
 
 export function BillingHistory({ filter = "all" }: { filter?: BillingFilter }) {
-  const [localBills, setLocalBills] = useState(bills);
-  const [selectedBill, setSelectedBill] = useState<(typeof bills)[number] | null>(null);
+  const { bills, source, refresh } = useOperationalData();
+  const [localOverrides, setLocalOverrides] = useState<Record<string, AdminBill>>({});
+  const [selectedBill, setSelectedBill] = useState<AdminBill | null>(null);
+  const localBills = useMemo(() => bills.map((bill) => localOverrides[bill.id] ?? bill), [bills, localOverrides]);
   const filteredBills = useMemo(() => {
     if (filter === "pending") return localBills.filter((bill) => bill.status !== "PAID");
     if (filter === "upi") return localBills.filter((bill) => bill.method === "UPI" && bill.status === "PAID");
@@ -256,31 +264,20 @@ export function BillingHistory({ filter = "all" }: { filter?: BillingFilter }) {
 
   const title = filter === "pending" ? "Pending Payments" : filter === "upi" ? "UPI Transactions" : "Billing History";
 
-  function verifyCashPayment(billId: string) {
-    setLocalBills((currentBills) =>
-      currentBills.map((bill) =>
-        bill.id === billId
-          ? {
-              ...bill,
-              status: "PAID",
-              paymentStatus: "Cash verified by counter staff",
-              exitStatus: "QR generated",
-              reference: bill.reference.startsWith("CASH") ? `${bill.reference}-VERIFIED` : bill.reference
-            }
-          : bill
-      )
-    );
-    setSelectedBill((bill) =>
-      bill
-        ? {
-            ...bill,
-            status: "PAID",
-            paymentStatus: "Cash verified by counter staff",
-            exitStatus: "QR generated",
-            reference: bill.reference.startsWith("CASH") ? `${bill.reference}-VERIFIED` : bill.reference
-          }
-        : bill
-    );
+  async function verifyCashPayment(bill: AdminBill) {
+    try {
+      await api.put(`/counter/cash/${bill.reference}/verify`, { verifiedBy: "Billing Desk" });
+      await refresh();
+    } catch {
+      const updated = {
+        ...bill,
+        status: "PAID",
+        paymentStatus: "Cash verified by billing desk",
+        exitStatus: "QR generated"
+      };
+      setLocalOverrides((current) => ({ ...current, [bill.id]: updated }));
+      setSelectedBill(updated);
+    }
   }
 
   return (
@@ -291,7 +288,7 @@ export function BillingHistory({ filter = "all" }: { filter?: BillingFilter }) {
           <h2 className="flex items-center gap-3 text-2xl font-extrabold"><CreditCard className="text-brand" /> {title}</h2>
           <p className="mt-2 text-sm font-bold text-gray-500">{filter === "upi" ? "Successful UPI payments completed today" : filter === "pending" ? "Payments waiting for customer or counter confirmation" : "All transactions and receipts"}</p>
         </div>
-        <Badge className="bg-blue-50 text-brand">{filteredBills.length} records</Badge>
+        <Badge className={source === "backend" ? "bg-emerald-50 text-success" : "bg-blue-50 text-brand"}>{filteredBills.length} records · {source === "backend" ? "live" : "demo"}</Badge>
       </div>
       <table className="w-full min-w-[820px] text-left">
         <thead className="bg-gray-50 text-sm font-extrabold text-gray-500">
@@ -333,7 +330,7 @@ export function BillingHistory({ filter = "all" }: { filter?: BillingFilter }) {
             <p className="mt-2 text-sm font-bold leading-6 text-amber-800">
               Confirm only after staff physically receives ₹{selectedBill.total.toFixed(2)} at the counter. This enables receipt generation and exit QR.
             </p>
-            <Button className="mt-5 w-full bg-success py-3 text-white" onClick={() => verifyCashPayment(selectedBill.id)}>
+            <Button className="mt-5 w-full bg-success py-3 text-white" onClick={() => verifyCashPayment(selectedBill)}>
               Verify Cash Paid & Enable Exit QR
             </Button>
           </div>

@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
+import { recordCashVerificationBill } from "../services/activityLedger.js";
 import { getCashRequest, listCashRequests, listCounterStations, upsertCashRequest, verifyCashRequest } from "../services/cashCounterService.js";
 import { emitAdmin, emitCart } from "../services/realtime.js";
 import { asyncHandler, HttpError, ok } from "../utils/http.js";
@@ -54,7 +55,9 @@ router.put(
     const body = z.object({ verifiedBy: z.string().default("counter-staff") }).parse(req.body);
     const request = verifyCashRequest(req.params.token, body.verifiedBy);
     if (!request) throw new HttpError(404, "Cash verification request not found");
+    const bill = recordCashVerificationBill(request);
     emitAdmin("counter:cash-verified", request);
+    emitAdmin("admin:activity-updated", bill);
     emitCart(request.cartId, "counter:cash-verified", request);
     ok(res, request);
   })
