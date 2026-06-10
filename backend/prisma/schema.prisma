@@ -14,6 +14,11 @@ enum ProductStatus {
   INACTIVE
 }
 
+enum GstMode {
+  INCLUSIVE
+  EXCLUSIVE
+}
+
 enum CartStatus {
   OPEN
   CHECKOUT
@@ -125,13 +130,18 @@ model Product {
   name        String
   barcode     String           @unique
   description String
+  sku         String?
   categoryId  String
   category    Category         @relation(fields: [categoryId], references: [id])
   price       Float
   mrp         Float
+  discount    Float            @default(0)
+  gstRate     Float            @default(5)
+  gstMode     GstMode          @default(EXCLUSIVE)
   weightKg    Float
   imageUrl    String
   supplier    String
+  supplierPhone String         @default("")
   status      ProductStatus    @default(ACTIVE)
   isActive    Boolean          @default(true)
   createdAt   DateTime         @default(now())

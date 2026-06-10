@@ -116,6 +116,8 @@ For full Play Store and App Store steps, see [MOBILE_STORE_DEPLOYMENT.md](/Users
 
 For live OTP, Razorpay, PostgreSQL, and provider requirements, see [PRODUCTION_READINESS.md](/Users/balanikhil/Documents/Codex/2026-05-27/role-you-are-a-senior-full/docs/PRODUCTION_READINESS.md).
 
+For finding the exact Render URLs and replacing placeholder env values, see [RENDER_URL_GUIDE.md](/Users/balanikhil/Documents/Codex/2026-05-27/role-you-are-a-senior-full/docs/RENDER_URL_GUIDE.md).
+
 ## AI Service
 
 Deploy FastAPI with Uvicorn/Gunicorn:

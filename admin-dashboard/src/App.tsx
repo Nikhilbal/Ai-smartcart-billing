@@ -46,7 +46,7 @@ function renderPage(
 
 export default function App() {
   const [active, setActive] = useState<PageKey>("dashboard");
-  const [loggedIn, setLoggedIn] = useState(false);
+  const [loggedIn, setLoggedIn] = useState(() => Boolean(window.localStorage.getItem("smart-cart.adminToken")));
   const [billingFilter, setBillingFilter] = useState<BillingFilter>("all");
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [reorderProduct, setReorderProduct] = useState<Product | null>(null);
@@ -84,7 +84,10 @@ export default function App() {
   return (
     <div className="min-h-screen bg-page text-ink">
       <div className="flex">
-        <Sidebar active={active} onChange={(page) => navigate(page)} onLogout={() => setLoggedIn(false)} />
+        <Sidebar active={active} onChange={(page) => navigate(page)} onLogout={() => {
+          window.localStorage.removeItem("smart-cart.adminToken");
+          setLoggedIn(false);
+        }} />
         <main className="min-w-0 flex-1">
           <Header active={active} alertCount={alerts.length} onNotifications={() => setAlertsOpen(true)} />
           <div className="mx-auto max-w-[1720px] p-6 md:p-9">{renderPage(active, navigate, billingFilter, setReorderProduct, reorderRequests, updateReorderStatus)}</div>

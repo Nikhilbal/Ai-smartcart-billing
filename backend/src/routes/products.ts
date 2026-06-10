@@ -9,6 +9,19 @@ const router = Router();
 
 const include = { category: true, inventory: true } as const;
 
+async function resolveCategoryId(categoryId?: string, categoryName?: string) {
+  if (categoryId) return categoryId;
+  const name = categoryName?.trim();
+  if (!name) throw new HttpError(400, "Category is required");
+
+  const category = await prisma.category.upsert({
+    where: { name },
+    update: {},
+    create: { name, emoji: "🏷️" }
+  });
+  return category.id;
+}
+
 router.get(
   "/",
   asyncHandler(async (req, res) => {
@@ -62,29 +75,41 @@ router.post(
         name: z.string(),
         barcode: z.string(),
         description: z.string().default(""),
-        categoryId: z.string(),
+        sku: z.string().optional(),
+        categoryId: z.string().optional(),
+        categoryName: z.string().optional(),
         price: z.number().positive(),
         mrp: z.number().positive(),
+        discount: z.number().min(0).default(0),
+        gstRate: z.number().min(0).default(5),
+        gstMode: z.enum(["INCLUSIVE", "EXCLUSIVE"]).default("EXCLUSIVE"),
         weightKg: z.number().positive(),
         imageUrl: z.string().url(),
         supplier: z.string(),
+        supplierPhone: z.string().default(""),
         stock: z.number().int().nonnegative(),
         minStock: z.number().int().positive().default(50)
       })
       .parse(req.body);
 
+    const categoryId = await resolveCategoryId(body.categoryId, body.categoryName);
     const status = getInventoryStatus(body.stock, body.minStock);
     const product = await prisma.product.create({
       data: {
         name: body.name,
         barcode: body.barcode,
         description: body.description,
-        categoryId: body.categoryId,
+        sku: body.sku,
+        categoryId,
         price: body.price,
         mrp: body.mrp,
+        discount: body.discount,
+        gstRate: body.gstRate,
+        gstMode: body.gstMode,
         weightKg: body.weightKg,
         imageUrl: body.imageUrl,
         supplier: body.supplier,
+        supplierPhone: body.supplierPhone,
         status,
         inventory: {
           create: {
@@ -109,28 +134,40 @@ router.put(
       .object({
         name: z.string().optional(),
         description: z.string().optional(),
+        sku: z.string().optional(),
         categoryId: z.string().optional(),
+        categoryName: z.string().optional(),
         price: z.number().positive().optional(),
         mrp: z.number().positive().optional(),
+        discount: z.number().min(0).optional(),
+        gstRate: z.number().min(0).optional(),
+        gstMode: z.enum(["INCLUSIVE", "EXCLUSIVE"]).optional(),
         weightKg: z.number().positive().optional(),
         imageUrl: z.string().url().optional(),
         supplier: z.string().optional(),
+        supplierPhone: z.string().optional(),
         stock: z.number().int().nonnegative().optional(),
         minStock: z.number().int().positive().optional()
       })
       .parse(req.body);
 
+    const categoryId = body.categoryId || body.categoryName ? await resolveCategoryId(body.categoryId, body.categoryName) : undefined;
     const product = await prisma.product.update({
       where: { id: req.params.id },
       data: {
         name: body.name,
         description: body.description,
-        categoryId: body.categoryId,
+        sku: body.sku,
+        categoryId,
         price: body.price,
         mrp: body.mrp,
+        discount: body.discount,
+        gstRate: body.gstRate,
+        gstMode: body.gstMode,
         weightKg: body.weightKg,
         imageUrl: body.imageUrl,
-        supplier: body.supplier
+        supplier: body.supplier,
+        supplierPhone: body.supplierPhone
       },
       include
     });

@@ -1,18 +1,35 @@
 import { LockKeyhole, Mail, ShoppingCart } from "lucide-react";
 import { FormEvent, useState } from "react";
 import { Button, Card, Input } from "../components/ui";
+import { api } from "../lib/api";
 
 type Props = {
-  onLogin: () => void;
+  onLogin: (token?: string) => void;
 };
 
 export function AdminLogin({ onLogin }: Props) {
   const [email, setEmail] = useState("admin@smartcart.local");
   const [password, setPassword] = useState("admin123");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  function submit(event: FormEvent) {
+  async function submit(event: FormEvent) {
     event.preventDefault();
-    if (email && password) onLogin();
+    if (!email || !password || loading) return;
+    setLoading(true);
+    setError("");
+    try {
+      const { data } = await api.post("/auth/admin-login", { email, password });
+      const token = data.data.token as string;
+      window.localStorage.setItem("smart-cart.adminToken", token);
+      onLogin(token);
+    } catch {
+      window.localStorage.removeItem("smart-cart.adminToken");
+      setError("Backend login unavailable. Opening dashboard in offline inventory demo mode.");
+      window.setTimeout(() => onLogin(), 500);
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -40,7 +57,8 @@ export function AdminLogin({ onLogin }: Props) {
               <Input className="pl-12" type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
             </div>
           </label>
-          <Button className="h-13 w-full bg-brand py-4 text-base text-white shadow-soft">Login</Button>
+          {error ? <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">{error}</div> : null}
+          <Button className="h-13 w-full bg-brand py-4 text-base text-white shadow-soft" disabled={loading}>{loading ? "Checking..." : "Login"}</Button>
         </form>
       </Card>
     </main>

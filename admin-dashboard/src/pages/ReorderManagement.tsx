@@ -99,7 +99,10 @@ export function ReorderManagement({ requests, onStatusChange }: Props) {
                           </span>
                         </button>
                       </td>
-                      <td className="px-6 py-5 font-bold text-gray-600">{request.supplier}</td>
+                      <td className="px-6 py-5">
+                        <div className="font-bold text-gray-600">{request.supplier}</div>
+                        <div className="mt-1 font-mono text-xs font-bold text-gray-400">{request.supplierPhone || "No number"}</div>
+                      </td>
                       <td className="px-6 py-5 font-mono font-black">{request.orderQuantity}</td>
                       <td className="px-6 py-5 font-mono font-black text-brand">{inr(request.estimatedTotal)}</td>
                       <td className="px-6 py-5 font-bold text-gray-600">{formatDate(request.expectedDelivery)}</td>
@@ -133,6 +136,7 @@ export function ReorderManagement({ requests, onStatusChange }: Props) {
               rows={[
                 ["Product", selected.productName],
                 ["Supplier", selected.supplier],
+                ["Supplier Number", selected.supplierPhone || "Not available"],
                 ["Current Stock", `${selected.currentStock} units`],
                 ["Minimum Stock", `${selected.minStock} units`],
                 ["Order Quantity", `${selected.orderQuantity} units`],

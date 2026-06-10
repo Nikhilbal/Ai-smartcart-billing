@@ -8,6 +8,7 @@ export type ReorderRequest = {
   productName: string;
   barcode: string;
   supplier: string;
+  supplierPhone: string;
   image: string;
   currentStock: number;
   minStock: number;
@@ -27,7 +28,7 @@ export function recommendedReorderQuantity(product: Product) {
   return Math.max(50, targetStock - product.stock);
 }
 
-export function makeReorderRequest(product: Product, orderQuantity: number, priority: "NORMAL" | "URGENT", notes: string): ReorderRequest {
+export function makeReorderRequest(product: Product, orderQuantity: number, priority: "NORMAL" | "URGENT", notes: string, supplierName = product.supplier, supplierPhone = product.supplierPhone ?? ""): ReorderRequest {
   const now = new Date();
   const delivery = new Date(now);
   delivery.setDate(now.getDate() + (priority === "URGENT" ? 1 : 3));
@@ -37,7 +38,8 @@ export function makeReorderRequest(product: Product, orderQuantity: number, prio
     productId: product.id,
     productName: product.name,
     barcode: product.barcode,
-    supplier: product.supplier,
+    supplier: supplierName,
+    supplierPhone,
     image: product.image,
     currentStock: product.stock,
     minStock: product.min,

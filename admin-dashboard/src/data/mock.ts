@@ -4,12 +4,19 @@ export type Product = {
   barcode: string;
   category: string;
   price: number;
+  mrp?: number;
+  discount?: number;
+  gstRate?: number;
+  gstMode?: "INCLUSIVE" | "EXCLUSIVE";
+  weightKg?: number;
   stock: number;
   min: number;
   status: "OK" | "LOW" | "CRITICAL";
   supplier: string;
+  supplierPhone?: string;
   image: string;
   sku?: string;
+  description?: string;
 };
 
 export const productImages = {

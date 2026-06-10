@@ -16,12 +16,16 @@ export function ReorderModal({ product, onClose, onCreate }: Props) {
   const defaultQty = product ? recommendedReorderQuantity(product) : 50;
   const [quantity, setQuantity] = useState(defaultQty);
   const [priority, setPriority] = useState<"NORMAL" | "URGENT">("URGENT");
+  const [supplierName, setSupplierName] = useState(product?.supplier ?? "");
+  const [supplierPhone, setSupplierPhone] = useState(product?.supplierPhone ?? "");
   const [notes, setNotes] = useState("Auto reorder from low-stock alert. Confirm availability and dispatch to Mumbai - Vile Parle store.");
 
   useEffect(() => {
     setQuantity(defaultQty);
     setPriority(product?.status === "CRITICAL" ? "URGENT" : "NORMAL");
-  }, [defaultQty, product?.status]);
+    setSupplierName(product?.supplier ?? "");
+    setSupplierPhone(product?.supplierPhone ?? "");
+  }, [defaultQty, product?.status, product?.supplier, product?.supplierPhone]);
 
   if (!product) return null;
 
@@ -51,7 +55,8 @@ export function ReorderModal({ product, onClose, onCreate }: Props) {
               <div className="min-w-0">
                 <div className="text-xl font-extrabold">{product.name}</div>
                 <div className="mt-1 font-mono text-sm text-gray-500">{product.barcode}</div>
-                <div className="mt-2 text-sm font-bold text-gray-600">Supplier: {product.supplier}</div>
+                <div className="mt-2 text-sm font-bold text-gray-600">Supplier: {supplierName || product.supplier}</div>
+                <div className="mt-1 font-mono text-xs font-bold text-gray-400">{supplierPhone || "No supplier number"}</div>
               </div>
             </div>
 
@@ -67,7 +72,15 @@ export function ReorderModal({ product, onClose, onCreate }: Props) {
 
             <div className="grid gap-4 md:grid-cols-2">
               <label className="block">
-                <span className="mb-2 block text-sm font-extrabold text-gray-600">Order Quantity</span>
+                <span className="mb-2 block text-sm font-extrabold text-gray-600">Supplier Name</span>
+                <Input value={supplierName} onChange={(event) => setSupplierName(event.target.value)} />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-sm font-extrabold text-gray-600">Supplier Phone</span>
+                <Input value={supplierPhone} onChange={(event) => setSupplierPhone(event.target.value)} placeholder="+91 98765 43210" />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-sm font-extrabold text-gray-600">Required Reorder Quantity</span>
                 <Input type="number" min={1} value={quantity} onChange={(event) => setQuantity(Math.max(1, Number(event.target.value)))} />
               </label>
               <label className="block">
@@ -116,7 +129,9 @@ export function ReorderModal({ product, onClose, onCreate }: Props) {
               </div>
               <DetailGrid
                 rows={[
-                  ["Quantity", `${quantity} units`],
+                  ["Supplier", supplierName || product.supplier],
+                  ["Contact", supplierPhone || "Not available"],
+                  ["Required Quantity", `${quantity} units`],
                   ["Estimated Value", inr(estimatedTotal)],
                   ["Delivery SLA", expectedDays],
                   ["Created By", "Priya Singh"],
@@ -131,7 +146,7 @@ export function ReorderModal({ product, onClose, onCreate }: Props) {
           <Button className="border border-border bg-white text-gray-700" onClick={onClose}>
             Cancel
           </Button>
-          <Button className="bg-danger px-6 py-3 text-white" onClick={() => onCreate(makeReorderRequest(product, quantity, priority, notes))}>
+          <Button className="bg-danger px-6 py-3 text-white" onClick={() => onCreate(makeReorderRequest(product, quantity, priority, notes, supplierName || product.supplier, supplierPhone))}>
             Create Purchase Order
           </Button>
         </div>
